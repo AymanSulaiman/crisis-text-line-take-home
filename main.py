@@ -15,19 +15,23 @@ SEED = 42
 
 config = yaml.safe_load(open("config.yaml", "r"))
 # Multiprocessing library for cores
-# Need to look up autoscaling again
+
+# .config("spark.memory.fraction", "0.8")
+# .config("spark.memory.storageFraction", "0.3")
 spark = (
     SparkSession.builder.appName("Medallion Architecture")
-    .config("spark.executor.memory", config["total_memory"])
-    .config("spark.driver.memory", config["total_memory"])
+    .config("spark.executor.memory", "12g")
+    .config("spark.driver.memory", "12g")
     .config("spark.executor.instances", "1")
-    .config("spark.executor.cores", str(config["total_cores"] - 1))
-    .config("spark.sql.shuffle.partitions", str(config["total_cores"] * 2))
+    .config("spark.executor.cores", "8")
+    .config("spark.executor.memoryOverhead", "2g")
+    .config("spark.sql.shuffle.partitions", "16")
     .config("spark.memory.fraction", "0.8")
-    .config("spark.memory.storageFraction", "0.3")
+    .config("spark.memory.storageFraction", "0.2")
+    .config("spark.ui.enabled", "true")
+    .config("spark.ui.port", "4040")
     .getOrCreate()
 )
-
 
 gender = {1: "Male", 2: "Female", -9: "Missing/unknown/not collected/invalid"}
 
@@ -76,7 +80,7 @@ def bronze_layer(
 
     df.write.partitionBy("GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY").mode(
         "overwrite"
-    ).parquet(bronze_output_path)
+    ).parquet(bronze_output_path, compression="snappy")
 
 
 def silver_layer(
@@ -98,16 +102,23 @@ def silver_layer(
 
     df = spark.read.parquet(bronze_input_path).na.drop()
 
+    print("mapping")
+
     df = df.withColumn("GENDER_mapped", gender_map_udf("GENDER"))
     df = df.withColumn("RACE_mapped", race_map_udf("RACE"))
     df = df.withColumn("MARSTAT_mapped", marital_status_map_udf("MARSTAT"))
     df = df.withColumn("EMPLOY_mapped", employment_status_map_udf("EMPLOY"))
     df = df.withColumn("ETHNIC_mapped", ethnicity_map_udf("ETHNIC"))
 
+    print("finish mapping")
+
+    print("case to int")
     df = df.withColumn(
         "CASEID_int",
-        F.substring(F.col("CASEID").cast("string"), 5,len(F.col("CASEID"))).cast(T.IntegerType()),
+        F.substring(F.col("CASEID").cast("string"), 5, 10).cast(T.IntegerType()),
     )
+
+    print("finish case to int")
 
     numeric_columns = [
         "NUMMHS",
@@ -126,12 +137,18 @@ def silver_layer(
         "OTHERDISFLG",
     ]
 
+    print("to numeric")
+
     for column in numeric_columns:
         df = df.withColumn(column, F.col(column).cast(T.FloatType()))
+
+    print("finish numeric")
 
     cols_to_scale = numeric_columns
 
     extract_first_element = F.udf(lambda x: float(x[0]), T.FloatType())
+
+    print("scaling")
 
     for col in cols_to_scale:
         assembler = VectorAssembler(inputCols=[col], outputCol=f"{col}_vec")
@@ -144,6 +161,9 @@ def silver_layer(
         )
         df = df.drop(f"{col}_vec").drop(f"{col}_normalized_vec")
 
+    print("finish scaling")
+
+    print("scaling")
     for col in cols_to_scale:
         assembler = VectorAssembler(inputCols=[col], outputCol=f"{col}_vec")
         scaler = StandardScaler(
@@ -160,10 +180,12 @@ def silver_layer(
             extract_first_element(F.col(f"{col}_standardized_vec")),
         )
         df = df.drop(f"{col}_vec").drop(f"{col}_standardized_vec")
+    print("finish scaling")
 
     df = df.na.drop()
 
     # Create demographic_strata column
+    print("demographic_strata column")
     df = df.withColumn(
         "demographic_strata",
         F.concat_ws(
@@ -175,10 +197,13 @@ def silver_layer(
             F.col("EMPLOY"),
         ),
     )
+    print("finish demographic_strata column")
 
     # Index the demographic_strata column
+    print("indexer")
     indexer = StringIndexer(inputCol="demographic_strata", outputCol="strataIndex")
     df = indexer.fit(df).transform(df)
+    print("finish indexer")
 
     # Split the data into train, test, and validation sets
     train, test = df.randomSplit([0.8, 0.2], seed=SEED)
@@ -190,29 +215,36 @@ def silver_layer(
     # Write the DataFrame to the silver output path
     df.write.partitionBy("GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY").mode(
         "overwrite"
-    ).parquet(silver_output_path)
+    ).parquet(silver_output_path, compression="snappy")
 
     # Write train, test, and validation sets to their respective paths
     train.write.partitionBy("GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY").mode(
         "overwrite"
-    ).parquet(train_path)
+    ).parquet(train_path, compression="snappy")
 
     test.write.partitionBy("GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY").mode(
         "overwrite"
-    ).parquet(test_path)
+    ).parquet(test_path, compression="snappy")
 
     validation.write.partitionBy("GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY").mode(
         "overwrite"
-    ).parquet(validation_path)
+    ).parquet(validation_path, compression="snappy")
+
+    train.createOrReplaceTempView(f"{silver_sql_name}_train")
+    test.createOrReplaceTempView(f"{silver_sql_name}_test")
+    validation.createOrReplaceTempView(f"{silver_sql_name}_validation")
 
 
 def gold_layer(
-    silver_input_path: str, 
-    train_path: str,
-    test_path: str,
-    validation_path: str,
-    gold_output_path: str, 
-    gold_sql_name: str
+    silver_input_path: str,
+    silver_train_path: str,
+    silver_test_path: str,
+    silver_validation_path: str,
+    gold_output_path: str,
+    gold_train_path: str,
+    gold_test_path: str,
+    gold_validation_path: str,
+    gold_sql_name: str,
 ) -> None:
     df = spark.read.parquet(silver_input_path).na.drop()
     df = df.drop("demographic_strata")
@@ -220,65 +252,93 @@ def gold_layer(
     df.createOrReplaceTempView(gold_sql_name)
     df.write.partitionBy("GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY").mode(
         "overwrite"
-    ).parquet(gold_output_path)
+    ).parquet(gold_output_path, compression="snappy")
 
-    train_df = spark.read.parquet(train_path).na.drop()
+    train_df = spark.read.parquet(silver_train_path).na.drop()
     train_df = train_df.drop("demographic_strata")
     train_df = train_df.drop("strataIndex")
-    train_df.createOrReplaceTempView("train")
+    train_df.createOrReplaceTempView(f"{gold_sql_name}_train")
     train_df.write.partitionBy("GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY").mode(
         "overwrite"
-    ).parquet(gold_output_path)
+    ).parquet(gold_train_path, compression="snappy")
 
-    test_df = spark.read.parquet(test_path).na.drop()
+    test_df = spark.read.parquet(silver_test_path).na.drop()
     test_df = df.drop("demographic_strata")
     test_df = df.drop("strataIndex")
-    test_df.createOrReplaceTempView("test")
+    test_df.createOrReplaceTempView(f"{gold_sql_name}_test")
     test_df.write.partitionBy("GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY").mode(
         "overwrite"
-    ).parquet(gold_output_path)
+    ).parquet(gold_test_path, compression="snappy")
 
-    validation_df = spark.read.parquet(validation_path).na.drop()
+    validation_df = spark.read.parquet(silver_validation_path).na.drop()
     validation_df = df.drop("demographic_strata")
     validation_df = df.drop("strataIndex")
-    validation_df.createOrReplaceTempView("validation")
-    validation_df.write.partitionBy("GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY").mode(
-        "overwrite"
-    ).parquet(gold_output_path)
+    validation_df.createOrReplaceTempView(f"{gold_sql_name}_validation")
+    validation_df.write.partitionBy(
+        "GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"
+    ).mode("overwrite").parquet(gold_validation_path, compression="snappy")
 
 
+def schema_validator(df: DataFrame, schema: T.StructType) -> bool:
+    return df.schema == schema
 
-def schema_validator():
-    pass
 
 def data_validator():
     pass
+
 
 def main():
     raw_path = os.path.join("data", "*.csv")
     bronze_path = os.path.join("data", "medallion_layers_main", "bronze")
     silver_path = os.path.join("data", "medallion_layers_main", "silver", "full")
-    train_path = os.path.join("data", "medallion_layers_main", "silver_part", "train")
-    test_path = os.path.join("data", "medallion_layers_main", "silver_part", "test")
-    validation_path = os.path.join(
-        "data", "medallion_layers_main", "silver_part", "validation"
+    silver_train_path = os.path.join("data", "medallion_layers_main", "silver", "train")
+    silver_test_path = os.path.join("data", "medallion_layers_main", "silver", "test")
+    silver_validation_path = os.path.join(
+        "data", "medallion_layers_main", "silver", "validation"
     )
-    gold_path = os.path.join("data", "medallion_layers_main", "gold")
-    bronze_df = bronze_layer(
+    gold_path = os.path.join("data", "medallion_layers_main", "gold", "full")
+    gold_train_path = os.path.join("data", "medallion_layers_main", "gold", "train")
+    gold_test_path = os.path.join("data", "medallion_layers_main", "gold", "test")
+    gold_validation_path = os.path.join(
+        "data", "medallion_layers_main", "gold", "validation"
+    )
+
+    bronze_layer(
         raw_input_path=raw_path,
         bronze_output_path=bronze_path,
         bronze_sql_name="bronze",
     )
 
-    silver_df = silver_layer(
+    silver_layer(
         bronze_input_path=bronze_path,
         silver_output_path=silver_path,
         silver_sql_name="silver",
-        train_path=train_path,
-        test_path=test_path,
-        validation_path=validation_path,
+        train_path=silver_train_path,
+        test_path=silver_test_path,
+        validation_path=silver_validation_path,
     )
+
+    gold_layer(
+        silver_input_path=silver_path,
+        silver_train_path=silver_train_path,
+        silver_test_path=silver_test_path,
+        silver_validation_path=silver_validation_path,
+        gold_output_path=gold_path,
+        gold_train_path=gold_train_path,
+        gold_test_path=gold_test_path,
+        gold_validation_path=gold_validation_path,
+        gold_sql_name="gold",
+    )
+
+    bronze_sql = """SELECT * FROM bronze LIMIT 10"""
+    silver_sql = """SELECT * FROM silver LIMIT 10"""
+    gold_sql = """SELECT * FROM gold LIMIT 10"""
+
+    spark.sql(bronze_sql).show()
+    spark.sql(silver_sql).show()
+    spark.sql(gold_sql).show()
 
 
 if __name__ == "__main__":
     main()
+    spark.stop()
