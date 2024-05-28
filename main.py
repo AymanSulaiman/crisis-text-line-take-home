@@ -40,7 +40,7 @@ ethnicity = {
 
 @dlt.table(name="bronze")
 def bronze_layer():
-    raw_path = "dbfs:/path/to/your/data/*.csv"
+    raw_path = "gs://crisis-text-line/mhcld_puf_2021.csv"
     df = (
         spark.read.format("csv")
         .option("header", "true")
