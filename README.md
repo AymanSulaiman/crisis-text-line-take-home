@@ -43,7 +43,7 @@ The task is to process and transform the given dataset using PySpark, implementi
 
 ### Medallion Architecture Implementation
 
-![Medallion Archtecture](architecture.png)
+![Medallion Architecture](architecture.png)
 
 #### Bronze Layer
 
@@ -87,3 +87,4 @@ Logging has been implemented as decorators, and this pipeline has been designed 
 1. Set up your Databricks environment.
 2. Git clone this repo.
 3. Run the `main.py` or the `main_notebook.py` file. The pipeline should run, and the data should be saved as Delta Live Tables.
+4. Brew a cup of tea, this does take a long time since the data does undergo a lot of checks to make sure that it all works.
