@@ -27,6 +27,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 def create_map_udf(mapping_dict):
     """Create a UDF for mapping dictionary values.
 
@@ -38,6 +39,7 @@ def create_map_udf(mapping_dict):
     """
     return F.udf(lambda key: mapping_dict.get(key, "Unknown"), T.StringType())
 
+
 def handle_error(func):
     """Decorator to handle errors and exceptions in data processing functions.
 
@@ -47,13 +49,16 @@ def handle_error(func):
     Returns:
         function: Wrapped function with error handling.
     """
+
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
         except Exception as e:
             logger.error(f"Error in function {func.__name__}: {e}")
             raise
+
     return wrapper
+
 
 @dlt.expect_all_or_drop(bronze_validations)
 @dlt.table(
@@ -83,6 +88,7 @@ def bronze_layer() -> DataFrame:
     ).saveAsTable("bronze")
     logger.info("Bronze layer processing complete.")
     return df
+
 
 @dlt.expect_all_or_drop(silver_1_validation)
 @dlt.table(
@@ -158,6 +164,7 @@ def silver_1() -> DataFrame:
     logger.info("Silver_1 layer processing complete.")
     return df
 
+
 @dlt.expect_all_or_drop(silver_2_validation)
 @dlt.table(
     name="silver_2",
@@ -220,6 +227,7 @@ def silver_2() -> DataFrame:
     logger.info("Silver_2 layer processing complete.")
     return df
 
+
 @dlt.expect_all_or_drop(silver_3_validation)
 @dlt.table(
     name="silver_3",
@@ -269,6 +277,7 @@ def silver_3() -> DataFrame:
     logger.info("Silver_3 layer processing complete.")
     return df
 
+
 @dlt.expect_all_or_drop(gold_validation)
 @dlt.table(name="gold_full", schema=gold_schema)
 @handle_error
@@ -287,6 +296,7 @@ def gold_full_layer() -> DataFrame:
     ).saveAsTable("gold_full")
     logger.info("Gold_full layer processing complete.")
     return df
+
 
 @dlt.expect_all_or_drop(gold_validation)
 @dlt.table(name="gold_train", schema=gold_schema)
@@ -307,6 +317,7 @@ def gold_train_layer() -> DataFrame:
     logger.info("Gold_train layer processing complete.")
     return df
 
+
 @dlt.expect_all_or_drop(gold_validation)
 @dlt.table(name="gold_validation", schema=gold_schema)
 @handle_error
@@ -325,6 +336,7 @@ def gold_validation_layer() -> DataFrame:
     ).saveAsTable("gold_validation")
     logger.info("Gold_validation layer processing complete.")
     return df
+
 
 @dlt.expect_all_or_drop(gold_validation)
 @dlt.table(name="gold_test", schema=gold_schema)
