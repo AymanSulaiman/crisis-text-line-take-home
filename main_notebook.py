@@ -1,3 +1,4 @@
+# Databricks notebook source
 import dlt
 import pyspark.sql.functions as F
 from pyspark.sql import types as T
@@ -336,3 +337,4 @@ def generate_summary_report():
     logger.info(f"Silver_3 Summary: {silver_3_summary}")
 
 generate_summary_report()
+

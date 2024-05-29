@@ -1,3 +1,4 @@
+# Databricks notebook source
 import dlt
 import pyspark.sql.functions as F
 from pyspark.sql import types as T
@@ -254,10 +255,7 @@ def silver_3() -> DataFrame:
 
 # Gold Full Layer
 @dlt.expect_all_or_drop(gold_validation)
-@dlt.table(
-    name="gold_full", 
-    # schema=gold_schema
-)
+@dlt.table(name="gold_full", schema=gold_schema)
 @handle_error
 def gold_full_layer() -> DataFrame:
     df = spark.read.table("silver_3_full").na.drop()
@@ -272,10 +270,7 @@ def gold_full_layer() -> DataFrame:
 
 # Gold Train Layer
 @dlt.expect_all_or_drop(gold_validation)
-@dlt.table(
-    name="gold_train", 
-    schema=gold_schema
-    )
+@dlt.table(name="gold_train", schema=gold_schema)
 @handle_error
 def gold_train_layer() -> DataFrame:
     df = spark.read.table("silver_train").na.drop()
@@ -290,10 +285,7 @@ def gold_train_layer() -> DataFrame:
 
 # Gold Validation Layer
 @dlt.expect_all_or_drop(gold_validation)
-@dlt.table(
-    name="gold_validation",
-    schema=gold_schema
-    )
+@dlt.table(name="gold_validation", schema=gold_schema)
 @handle_error
 def gold_validation_layer() -> DataFrame:
     df = spark.read.table("silver_validation").na.drop()
@@ -308,9 +300,7 @@ def gold_validation_layer() -> DataFrame:
 
 # Gold Test Layer
 @dlt.expect_all_or_drop(gold_validation)
-@dlt.table(
-    name="gold_test", 
-    schema=gold_schema)
+@dlt.table(name="gold_test", schema=gold_schema)
 @handle_error
 def gold_test_layer() -> DataFrame:
     df = spark.read.table("silver_test").na.drop()
@@ -336,3 +326,4 @@ def generate_summary_report():
     logger.info(f"Silver_3 Summary: {silver_3_summary}")
 
 generate_summary_report()
+
