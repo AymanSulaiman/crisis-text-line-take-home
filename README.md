@@ -1,7 +1,5 @@
 # README
 
-Table of Contents
-
 1. Introduction
 2. Resources
 3. Challenge Scenario
@@ -20,87 +18,72 @@ Table of Contents
 7. Documentation and Presentation
 8. How to Run and Test
 
-Introduction
+## Introduction
+
 This project demonstrates the implementation of the Medallion Architecture using the MH-CLD-2021-DS0001 SAMHSA dataset with PySpark. The goal is to showcase data engineering practices focusing on robustness and scalability.
 
-Resources
+## Resources
 
 - DataBricks Free Trial
 - Dataset: MH-CLD-2021-DS0001 SAMHSA dataset
 - Dataset Source: MH-CLD-2021-DS0001-bndl-data-csv_v1.zip
 - Data Dictionary: Dataset Documentation (link-to-dataset-documentation)
 
-Challenge Scenario
-As a senior data engineer, my task is to process and transform the given dataset using PySpark, implementing the Medallion Architecture to ensure data quality, robustness, and scalability.
+## Challenge Scenario
 
-Preparation
+The task is to process and transform the given dataset using PySpark, implementing the Medallion Architecture to ensure data quality, robustness, and scalability. Ultimately, this is an ETL challenge that undergoes a Medallion Transformation before it can be consumed by stakeholders.
+
+## Preparation
 
 1. Start up a DataBricks workspace.
 2. Use the provided dataset: MH-CLD-2021-DS0001-bndl-data-csv_v1.zip.
 3. Review the dataset documentation.
 
-Challenge Tasks
+## Challenge Tasks
 
-Reading the Data
+### Medallion Architecture Implementation
 
-1. Use PySpark to read the and transform the dataset (CSV/Parquet).
-2. Explore and understand the schema and data types.
-3. Implement schema checks to ensure data integrity.
+![Medallion Archtecture](architecture.png)
 
-Medallion Architecture Implementation
+#### Bronze Layer
 
-Insert a diagram of the Medallion Archtecture here.
+The data is loaded with PySpark via the DBFS and transformed into Delta Live Table while it undergoes data and schema checks.
 
-Bronze Layer
+#### Silver Layer
 
-1. Create a bronze table to store raw data.
-2. Perform basic data validation and cleaning.
-3. Partition the bronze table for improved query performance.
-4. Discuss logging and exception handling for the bronze layer.
+The Bronze Layer has been loaded, and the following transformations have been performed as well as saved to their respective Delta Live Tables.
+The tables and transformations made:
+    Silver 1 - Data Type Conversion
 
-Silver Layer
+    1. Converted the categorical variables to appropriate types.
+    2. Ensured CASEID is stored as an integer.
+    3. Converted the numeric variables to float types.
+    4. Validated data types for all variables.
 
-1. Create a silver table to store transformed and enriched data.
-2. Perform complex transformations that are the following.
+    Silver 2 - Data Normalization and Standardization
 
-    Data Type Conversion
+    1. Normalized the numeric variables using min-max scaling.
+    2. Standardized the numeric variables using z-score normalization.
+    3. Stored the normalized and standardized variables in new columns.
 
-    1. Convert categorical variables to appropriate types.
-    2. Ensure CASEID is stored as an integer.
-    3. Convert numeric variables to float types.
-    4. Validate data types for all variables.
-    5. Summarize data type conversions.
-
-    Data Normalization and Standardization
-    1. Normalize numeric variables using min-max scaling.
-    2. Standardize numeric variables using z-score normalization.
-    3. Store normalized and standardized variables in new columns.
-    4. Summarize techniques and rationale.
-
-    Data Partitioning and Sampling
-    1. Split dataset into training and testing sets based on demographic variables.
+    Silver 3 - Data Partitioning and Sampling
+    1. Split the dataset into training and testing sets based on demographic variables.
     2. Implement stratified sampling for training and testing sets.
     3. Create a validation set from the training set.
     4. Store dataset splits with appropriate naming conventions.
-    5. Provide a detailed report on partitioning and sampling process.
 
-3. Partition the silver table for improved query performance.
-4. Implement schema checks for transformed data.
-5. Discuss monitoring for the silver layer.
+The silver tables have been partitioned for improved query performance. Schema checks were also implemented via delta live tables.
 
-Gold Layer
+#### Gold Layer
 
-1. Create a gold table for final, curated data.
-2. Perform additional transformations for business-ready datasets.
-3. Partition the gold table for improved query performance.
-4. Implement schema checks for final data.
-5. Discuss monitoring for the gold layer.
+The final gold layer undergoes more checks and is ready for business for the data stakeholders. This, too, undergoes schema checks, data checks, and improved query performance.
 
-Transformation Exercise for Senior Data Engineer
-Data Type Conversion
+### Monitoring Each Layer
 
-How to Run and Test
+Logging has been implemented as decorators, and this pipeline has been designed to be orchestrated in DataBricks. The logging would be seen in the Spark UI and the scripts' outputs when running.
 
-1. Set up your databricks enviornment.
+## How to Run and Test
+
+1. Set up your Databricks environment.
 2. Git clone this repo.
-3. Run the `main.py`, the pipeline should run and the data should be saved as Delta Live Tables.
+3. Run the `main.py` or the `main_notebook.py` file. The pipeline should run, and the data should be saved as Delta Live Tables.
