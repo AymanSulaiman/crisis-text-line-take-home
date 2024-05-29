@@ -1,46 +1,62 @@
 import dlt
-from pyspark.sql import functions as F
+import pyspark.sql.functions as F
 from pyspark.sql import types as T
+from pyspark.sql import DataFrame
+from pyspark.ml.feature import VectorAssembler, MinMaxScaler, StandardScaler, StringIndexer
 from pyspark.ml import Pipeline
-from pyspark.ml.feature import StringIndexer, VectorAssembler, MinMaxScaler, StandardScaler
 
-# Mappings
-gender = {1: "Male", 2: "Female", -9: "Missing/unknown/not collected/invalid"}
-race = {
-    1: "American Indian/Alaska Native",
-    2: "Asian",
-    3: "Black or African American",
-    4: "Native Hawaiian or Other Pacific Islander",
-    5: "White",
-    6: "Some other race alone/two or more races",
-    -9: "Missing/unknown/not collected/invalid",
-}
-marital_status = {
-    1: "Never married",
-    2: "Now married",
-    3: "Separated",
-    4: "Divorced, widowed",
-    -9: "Missing/unknown/not collected/invalid",
-}
-employment_status = {
-    1: "Full-time",
-    2: "Part-time",
-    3: "Employed full-time/part-time not differentiated",
-    4: "Unemployed",
-    5: "Not in labor force",
-    -9: "Missing/unknown/not collected/invalid",
-}
-ethnicity = {
-    1: "Mexican",
-    2: "Puerto Rican",
-    3: "Other Hispanic or Latino origin",
-    4: "Not of Hispanic or Latino origin",
-    -9: "Missing/unknown/not collected/invalid",
-}
+from schemas import bronze_schema, gold_schema, silver_1_schema, silver_2_schema, silver_3_schema
 
-@dlt.table(name="bronze")
-def bronze_layer():
-    raw_path = "gs://crisis-text-line/mhcld_puf_2021.csv"
+@dlt.expect_all_or_drop({
+    "non_negative_age": "AGE >= 0 or AGE == -9",
+    "valid_age_type": "cast(AGE as int) == AGE",
+    "valid_year_type": "cast(YEAR as int) == YEAR",
+    "valid_caseid_type": "cast(CASEID as long) == CASEID",
+    "valid_educ_values": "EDUC >= -9",
+    "valid_ethnic_values": "ETHNIC >= -9",
+    "valid_race_values": "RACE >= -9",
+    "valid_gender_values": "GENDER >= -9",
+    "valid_sphservice_values": "SPHSERVICE >= -9",
+    "valid_cmpservice_values": "CMPSERVICE >= -9",
+    "valid_opiservice_values": "OPISERVICE >= -9",
+    "valid_rtcservice_values": "RTCSERVICE >= -9",
+    "valid_ijsservice_values": "IJSSERVICE >= -9",
+    "valid_mh1_values": "MH1 >= -9",
+    "valid_mh2_values": "MH2 >= -9",
+    "valid_mh3_values": "MH3 >= -9",
+    "valid_sub_values": "SUB >= -9",
+    "valid_marstat_values": "MARSTAT >= -9",
+    "valid_smised_values": "SMISED >= -9",
+    "valid_sap_values": "SAP >= -9",
+    "valid_employ_values": "EMPLOY >= -9",
+    "valid_detnlf_values": "DETNLF >= -9",
+    "valid_veteran_values": "VETERAN >= -9",
+    "valid_livarag_values": "LIVARAG >= -9",
+    "valid_nummhs_values": "NUMMHS >= -9",
+    "valid_traustref_values": "TRAUSTREFLG >= -9",
+    "valid_anxiety_values": "ANXIETYFLG >= -9",
+    "valid_adhd_values": "ADHDFLG >= -9",
+    "valid_conduct_values": "CONDUCTFLG >= -9",
+    "valid_delirdem_values": "DELIRDEMFLG >= -9",
+    "valid_bipolar_values": "BIPOLARFLG >= -9",
+    "valid_depress_values": "DEPRESSFLG >= -9",
+    "valid_odd_values": "ODDFLG >= -9",
+    "valid_pdd_values": "PDDFLG >= -9",
+    "valid_person_values": "PERSONFLG >= -9",
+    "valid_schizo_values": "SCHIZOFLG >= -9",
+    "valid_alcsub_values": "ALCSUBFLG >= -9",
+    "valid_otherdis_values": "OTHERDISFLG >= -9",
+    "valid_statefip_values": "STATEFIP >= -9",
+    "valid_division_values": "DIVISION >= -9",
+    "valid_region_values": "REGION >= -9"
+})
+@dlt.table(
+    name="bronze", 
+    partition_cols=["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"],
+    schema=bronze_schema
+)
+def bronze_layer() -> DataFrame:
+    raw_path = "dbfs:/FileStore/tables/mhcld_puf_2021.csv"
     df = (
         spark.read.format("csv")
         .option("header", "true")
@@ -48,79 +64,532 @@ def bronze_layer():
         .load(raw_path)
         .na.drop()
     )
+    partition_columns = ["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
+    assert df.schema == bronze_schema
+    df.write.format("delta").mode("overwrite").partitionBy(partition_columns).saveAsTable("bronze")
+    
     return df
 
-@dlt.table(name="silver")
-def silver_layer():
-    df = dlt.read("bronze").na.drop()
-    numeric_types = [T.IntegerType]
-    numeric_columns = [
-        field.name
-        for field in df.schema.fields
-        if isinstance(field.dataType, tuple(numeric_types))
-    ]
 
-    # Define UDFs for mappings
-    gender_udf = F.udf(lambda x: gender.get(x, "Unknown"), T.StringType())
-    race_udf = F.udf(lambda x: race.get(x, "Unknown"), T.StringType())
-    marital_status_udf = F.udf(lambda x: marital_status.get(x, "Unknown"), T.StringType())
-    employment_status_udf = F.udf(lambda x: employment_status.get(x, "Unknown"), T.StringType())
-    ethnicity_udf = F.udf(lambda x: ethnicity.get(x, "Unknown"), T.StringType())
 
-    # Apply UDFs
-    df = df.withColumn("GENDER_mapped", gender_udf(F.col("GENDER")))
-    df = df.withColumn("RACE_mapped", race_udf(F.col("RACE")))
-    df = df.withColumn("MARSTAT_mapped", marital_status_udf(F.col("MARSTAT")))
-    df = df.withColumn("EMPLOY_mapped", employment_status_udf(F.col("EMPLOY")))
-    df = df.withColumn("ETHNIC_mapped", ethnicity_udf(F.col("ETHNIC")))
+@dlt.expect_all_or_drop({
+    "non_negative_age": "AGE >= 0 or AGE == -9",
+    "valid_age_type": "cast(AGE as int) == AGE",
+    "valid_year_type": "cast(YEAR as int) == YEAR",
+    "valid_caseid_type": "cast(CASEID as long) == CASEID",
+    "valid_educ_values": "EDUC >= -9",
+    "valid_ethnic_values": "ETHNIC >= -9",
+    "valid_race_values": "RACE >= -9",
+    "valid_gender_values": "GENDER >= -9",
+    "valid_sphservice_values": "SPHSERVICE >= -9",
+    "valid_cmpservice_values": "CMPSERVICE >= -9",
+    "valid_opiservice_values": "OPISERVICE >= -9",
+    "valid_rtcservice_values": "RTCSERVICE >= -9",
+    "valid_ijsservice_values": "IJSSERVICE >= -9",
+    "valid_mh1_values": "MH1 >= -9",
+    "valid_mh2_values": "MH2 >= -9",
+    "valid_mh3_values": "MH3 >= -9",
+    "valid_sub_values": "SUB >= -9",
+    "valid_marstat_values": "MARSTAT >= -9",
+    "valid_smised_values": "SMISED >= -9",
+    "valid_sap_values": "SAP >= -9",
+    "valid_employ_values": "EMPLOY >= -9",
+    "valid_detnlf_values": "DETNLF >= -9",
+    "valid_veteran_values": "VETERAN >= -9",
+    "valid_livarag_values": "LIVARAG >= -9",
+    "valid_nummhs_values": "NUMMHS >= -9",
+    "valid_traustref_values": "TRAUSTREFLG >= -9",
+    "valid_anxiety_values": "ANXIETYFLG >= -9",
+    "valid_adhd_values": "ADHDFLG >= -9",
+    "valid_conduct_values": "CONDUCTFLG >= -9",
+    "valid_delirdem_values": "DELIRDEMFLG >= -9",
+    "valid_bipolar_values": "BIPOLARFLG >= -9",
+    "valid_depress_values": "DEPRESSFLG >= -9",
+    "valid_odd_values": "ODDFLG >= -9",
+    "valid_pdd_values": "PDDFLG >= -9",
+    "valid_person_values": "PERSONFLG >= -9",
+    "valid_schizo_values": "SCHIZOFLG >= -9",
+    "valid_alcsub_values": "ALCSUBFLG >= -9",
+    "valid_otherdis_values": "OTHERDISFLG >= -9",
+    "valid_statefip_values": "STATEFIP >= -9",
+    "valid_division_values": "DIVISION >= -9",
+    "valid_region_values": "REGION >= -9"
+})
+@dlt.table(
+    name="silver_1",
+    partition_cols=["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
+)
+def silver_1():
+    df = spark.read.table("bronze")
+    
+    def create_map_udf(mapping_dict):
+        return F.udf(lambda key: mapping_dict.get(key, "Unknown"), T.StringType())
 
-    stages = []
+    # Mappings
+    gender = {1: "Male", 2: "Female", -9: "Missing/unknown/not collected/invalid"}
+    race = {
+        1: "American Indian/Alaska Native",
+        2: "Asian",
+        3: "Black or African American",
+        4: "Native Hawaiian or Other Pacific Islander",
+        5: "White",
+        6: "Some other race alone/two or more races",
+        -9: "Missing/unknown/not collected/invalid",
+    }
+    marital_status = {
+        1: "Never married",
+        2: "Now married",
+        3: "Separated",
+        4: "Divorced, widowed",
+        -9: "Missing/unknown/not collected/invalid",
+    }
+    employment_status = {
+        1: "Full-time",
+        2: "Part-time",
+        3: "Employed full-time/part-time not differentiated",
+        4: "Unemployed",
+        5: "Not in labor force",
+        -9: "Missing/unknown/not collected/invalid",
+    }
+    ethnicity = {
+        1: "Mexican",
+        2: "Puerto Rican",
+        3: "Other Hispanic or Latino origin",
+        4: "Not of Hispanic or Latino origin",
+        -9: "Missing/unknown/not collected/invalid",
+    }
 
-    # Index categorical columns
-    for column in ["GENDER_mapped", "RACE_mapped", "MARSTAT_mapped", "EMPLOY_mapped", "ETHNIC_mapped"]:
-        indexer = StringIndexer(inputCol=column, outputCol=f"{column}_index")
-        stages.append(indexer)
+    # Apply mapping UDFs
+    race_map_udf = create_map_udf(race)
+    gender_map_udf = create_map_udf(gender)
+    marital_status_map_udf = create_map_udf(marital_status)
+    employment_status_map_udf = create_map_udf(employment_status)
+    ethnicity_map_udf = create_map_udf(ethnicity)
 
-    # Convert specific columns to float
+    df = df.withColumn("GENDER_mapped", gender_map_udf("GENDER"))
+    df = df.withColumn("RACE_mapped", race_map_udf("RACE"))
+    df = df.withColumn("MARSTAT_mapped", marital_status_map_udf("MARSTAT"))
+    df = df.withColumn("EMPLOY_mapped", employment_status_map_udf("EMPLOY"))
+    df = df.withColumn("ETHNIC_mapped", ethnicity_map_udf("ETHNIC"))
+
+    df = df.withColumn(
+        "CASEID_int",
+        F.substring(F.col("CASEID").cast("string"), 5, 10).cast(T.IntegerType()),
+    )
+    partition_columns = ["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
+    assert df.schema = silver_1_schema
+    df.write.format("delta").mode("overwrite").partitionBy(partition_columns).saveAsTable("silver_1")
+    return df
+
+
+
+
+
+@dlt.expect_all_or_drop({
+    "non_negative_age": "AGE >= 0 or AGE == -9",
+    "valid_age_type": "cast(AGE as int) == AGE",
+    "valid_year_type": "cast(YEAR as int) == YEAR",
+    "valid_caseid_type": "cast(CASEID as long) == CASEID",
+    "valid_educ_values": "EDUC >= -9",
+    "valid_ethnic_values": "ETHNIC >= -9",
+    "valid_race_values": "RACE >= -9",
+    "valid_gender_values": "GENDER >= -9",
+    "valid_sphservice_values": "SPHSERVICE >= -9",
+    "valid_cmpservice_values": "CMPSERVICE >= -9",
+    "valid_opiservice_values": "OPISERVICE >= -9",
+    "valid_rtcservice_values": "RTCSERVICE >= -9",
+    "valid_ijsservice_values": "IJSSERVICE >= -9",
+    "valid_mh1_values": "MH1 >= -9",
+    "valid_mh2_values": "MH2 >= -9",
+    "valid_mh3_values": "MH3 >= -9",
+    "valid_sub_values": "SUB >= -9",
+    "valid_marstat_values": "MARSTAT >= -9",
+    "valid_smised_values": "SMISED >= -9",
+    "valid_sap_values": "SAP >= -9",
+    "valid_employ_values": "EMPLOY >= -9",
+    "valid_detnlf_values": "DETNLF >= -9",
+    "valid_veteran_values": "VETERAN >= -9",
+    "valid_livarag_values": "LIVARAG >= -9",
+    "valid_nummhs_values": "NUMMHS >= -9",
+    "valid_traustref_values": "TRAUSTREFLG >= -9",
+    "valid_anxiety_values": "ANXIETYFLG >= -9",
+    "valid_adhd_values": "ADHDFLG >= -9",
+    "valid_conduct_values": "CONDUCTFLG >= -9",
+    "valid_delirdem_values": "DELIRDEMFLG >= -9",
+    "valid_bipolar_values": "BIPOLARFLG >= -9",
+    "valid_depress_values": "DEPRESSFLG >= -9",
+    "valid_odd_values": "ODDFLG >= -9",
+    "valid_pdd_values": "PDDFLG >= -9",
+    "valid_person_values": "PERSONFLG >= -9",
+    "valid_schizo_values": "SCHIZOFLG >= -9",
+    "valid_alcsub_values": "ALCSUBFLG >= -9",
+    "valid_otherdis_values": "OTHERDISFLG >= -9",
+    "valid_statefip_values": "STATEFIP >= -9",
+    "valid_division_values": "DIVISION >= -9",
+    "valid_region_values": "REGION >= -9",
+    "valid_nummhs_normalized": "NUMMHS_normalized is not null",
+    "valid_nummhs_standardized": "NUMMHS_standardized is not null"
+})
+@dlt.table(
+    name="silver_2", 
+    partition_cols=["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
+)
+def silver_2() -> DataFrame:
+    df = spark.read.table("silver_1")
+    numeric_columns = ["NUMMHS"]
+
     for col in numeric_columns:
-        df = df.withColumn(col, F.col(col).cast(T.FloatType()))
+        # Assemble the column into a vector
+        assembler = VectorAssembler(inputCols=[col], outputCol=f"{col}_vec")
+        df = assembler.transform(df)
+        
+        # Apply MinMaxScaler
+        min_max_scaler = MinMaxScaler(inputCol=f"{col}_vec", outputCol=f"{col}_normalized_vec")
+        df = min_max_scaler.fit(df).transform(df)
+        
+        # Apply StandardScaler
+        standard_scaler = StandardScaler(inputCol=f"{col}_normalized_vec", outputCol=f"{col}_standardized_vec", withMean=True, withStd=True)
+        df = standard_scaler.fit(df).transform(df)
+        
+        # Extract the first element from the vector columns
+        extract_first_element = F.udf(lambda x: float(x[0]), T.FloatType())
+        df = df.withColumn(f"{col}_normalized", extract_first_element(F.col(f"{col}_normalized_vec")))
+        df = df.withColumn(f"{col}_standardized", extract_first_element(F.col(f"{col}_standardized_vec")))
+        
+        # Drop intermediate vector columns
+        df = df.drop(f"{col}_vec").drop(f"{col}_normalized_vec").drop(f"{col}_standardized_vec")
 
-    # VectorAssembler for numeric columns
-    assembler = VectorAssembler(inputCols=numeric_columns, outputCol="numeric_features")
-    stages.append(assembler)
+    df = df.na.drop()
+    assert df.schema = silver_2_schema
+    partition_columns = ["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
+    df.write.format("delta").mode("overwrite").partitionBy(partition_columns).saveAsTable("silver_2")
+    return df
 
-    # MinMaxScaler
-    min_max_scaler = MinMaxScaler(inputCol="numeric_features", outputCol="scaled_features_min_max")
-    stages.append(min_max_scaler)
 
-    # StandardScaler
-    standard_scaler = StandardScaler(inputCol="numeric_features", outputCol="scaled_features_standard")
-    stages.append(standard_scaler)
+@dlt.expect_all_or_drop({
+    "non_negative_age": "AGE >= 0 or AGE == -9",
+    "valid_age_type": "cast(AGE as int) == AGE",
+    "valid_year_type": "cast(YEAR as int) == YEAR",
+    "valid_caseid_type": "cast(CASEID as long) == CASEID",
+    "valid_educ_values": "EDUC >= -9",
+    "valid_ethnic_values": "ETHNIC >= -9",
+    "valid_race_values": "RACE >= -9",
+    "valid_gender_values": "GENDER >= -9",
+    "valid_sphservice_values": "SPHSERVICE >= -9",
+    "valid_cmpservice_values": "CMPSERVICE >= -9",
+    "valid_opiservice_values": "OPISERVICE >= -9",
+    "valid_rtcservice_values": "RTCSERVICE >= -9",
+    "valid_ijsservice_values": "IJSSERVICE >= -9",
+    "valid_mh1_values": "MH1 >= -9",
+    "valid_mh2_values": "MH2 >= -9",
+    "valid_mh3_values": "MH3 >= -9",
+    "valid_sub_values": "SUB >= -9",
+    "valid_marstat_values": "MARSTAT >= -9",
+    "valid_smised_values": "SMISED >= -9",
+    "valid_sap_values": "SAP >= -9",
+    "valid_employ_values": "EMPLOY >= -9",
+    "valid_detnlf_values": "DETNLF >= -9",
+    "valid_veteran_values": "VETERAN >= -9",
+    "valid_livarag_values": "LIVARAG >= -9",
+    "valid_nummhs_values": "NUMMHS >= -9",
+    "valid_traustref_values": "TRAUSTREFLG >= -9",
+    "valid_anxiety_values": "ANXIETYFLG >= -9",
+    "valid_adhd_values": "ADHDFLG >= -9",
+    "valid_conduct_values": "CONDUCTFLG >= -9",
+    "valid_delirdem_values": "DELIRDEMFLG >= -9",
+    "valid_bipolar_values": "BIPOLARFLG >= -9",
+    "valid_depress_values": "DEPRESSFLG >= -9",
+    "valid_odd_values": "ODDFLG >= -9",
+    "valid_pdd_values": "PDDFLG >= -9",
+    "valid_person_values": "PERSONFLG >= -9",
+    "valid_schizo_values": "SCHIZOFLG >= -9",
+    "valid_alcsub_values": "ALCSUBFLG >= -9",
+    "valid_otherdis_values": "OTHERDISFLG >= -9",
+    "valid_statefip_values": "STATEFIP >= -9",
+    "valid_division_values": "DIVISION >= -9",
+    "valid_region_values": "REGION >= -9",
+    "valid_demographic_strata": "demographic_strata IS NOT NULL AND demographic_strata != ''",
+    "valid_strataIndex": "strataIndex IS NOT NULL AND cast(strataIndex as double) == strataIndex"
+})
+@dlt.table(
+    name="silver_3", 
+    partition_cols=["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
+)
+def silver_3() -> DataFrame:
+    df = spark.read.table("silver_2")
 
-    # Create and fit pipeline
-    pipeline = Pipeline(stages=stages)
-    pipeline_model = pipeline.fit(df)
-    df_transformed = pipeline_model.transform(df)
+    # Create demographic_strata column
+    df = df.withColumn(
+        "demographic_strata",
+        F.concat_ws(
+            "_",
+            F.col("GENDER"),
+            F.col("RACE"),
+            F.col("ETHNIC"),
+            F.col("MARSTAT"),
+            F.col("EMPLOY"),
+        ),
+    )
 
-    # Define a UDF to convert Vector to Array
-    def vector_to_array(v):
-        return v.toArray().tolist() if isinstance(v, DenseVector) else list(v)
+    # Index the demographic_strata column
+    indexer = StringIndexer(inputCol="demographic_strata", outputCol="strataIndex")
+    df = indexer.fit(df).transform(df)
 
-    vector_to_array_udf = F.udf(vector_to_array, T.ArrayType(T.DoubleType()))
+    SEED = 42
+    # Split the data into train, test, and validation sets
+    train, test = df.randomSplit([0.8, 0.2], seed=SEED)
+    train, validation = train.randomSplit([0.75, 0.25], seed=SEED)
 
-    # Apply the UDF to create a new array column
-    df_transformed = df_transformed.withColumn("scaled_features_array", vector_to_array_udf(df_transformed["scaled_features_standard"]))
+    # Write train, test, and validation sets to their respective paths
+    train.write.format("delta").mode("overwrite").saveAsTable("silver_train")
+    test.write.format("delta").mode("overwrite").saveAsTable("silver_test")
+    validation.write.format("delta").mode("overwrite").saveAsTable("silver_validation")
+    partition_columns = ["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
+    assert df.schema == silver_3_schema
+    df.write.format("delta").mode("overwrite").partitionBy(partition_columns).saveAsTable("silver_3_full")
+    return df
 
-    # Use posexplode to split array into multiple rows with position and value
-    exploded_df = df_transformed.selectExpr("CASEID", "posexplode(scaled_features_array) as (pos, value)")
 
-    # Pivot the DataFrame to get individual columns for each position
-    pivot_df = exploded_df.groupBy("CASEID").pivot("pos").agg(F.first("value"))
 
-    return pivot_df
-
-@dlt.table(name="gold")
-def gold_layer():
-    df = dlt.read("silver").na.drop()
+@dlt.expect_all_or_drop({
+    "non_negative_age": "AGE >= 0 or AGE == -9",
+    "valid_age_type": "cast(AGE as int) == AGE",
+    "valid_year_type": "cast(YEAR as int) == YEAR",
+    "valid_caseid_type": "cast(CASEID as long) == CASEID",
+    "valid_educ_values": "EDUC >= -9",
+    "valid_ethnic_values": "ETHNIC >= -9",
+    "valid_race_values": "RACE >= -9",
+    "valid_gender_values": "GENDER >= -9",
+    "valid_sphservice_values": "SPHSERVICE >= -9",
+    "valid_cmpservice_values": "CMPSERVICE >= -9",
+    "valid_opiservice_values": "OPISERVICE >= -9",
+    "valid_rtcservice_values": "RTCSERVICE >= -9",
+    "valid_ijsservice_values": "IJSSERVICE >= -9",
+    "valid_mh1_values": "MH1 >= -9",
+    "valid_mh2_values": "MH2 >= -9",
+    "valid_mh3_values": "MH3 >= -9",
+    "valid_sub_values": "SUB >= -9",
+    "valid_marstat_values": "MARSTAT >= -9",
+    "valid_smised_values": "SMISED >= -9",
+    "valid_sap_values": "SAP >= -9",
+    "valid_employ_values": "EMPLOY >= -9",
+    "valid_detnlf_values": "DETNLF >= -9",
+    "valid_veteran_values": "VETERAN >= -9",
+    "valid_livarag_values": "LIVARAG >= -9",
+    "valid_nummhs_values": "NUMMHS >= -9",
+    "valid_traustref_values": "TRAUSTREFLG >= -9",
+    "valid_anxiety_values": "ANXIETYFLG >= -9",
+    "valid_adhd_values": "ADHDFLG >= -9",
+    "valid_conduct_values": "CONDUCTFLG >= -9",
+    "valid_delirdem_values": "DELIRDEMFLG >= -9",
+    "valid_bipolar_values": "BIPOLARFLG >= -9",
+    "valid_depress_values": "DEPRESSFLG >= -9",
+    "valid_odd_values": "ODDFLG >= -9",
+    "valid_pdd_values": "PDDFLG >= -9",
+    "valid_person_values": "PERSONFLG >= -9",
+    "valid_schizo_values": "SCHIZOFLG >= -9",
+    "valid_alcsub_values": "ALCSUBFLG >= -9",
+    "valid_otherdis_values": "OTHERDISFLG >= -9",
+    "valid_statefip_values": "STATEFIP >= -9",
+    "valid_division_values": "DIVISION >= -9",
+    "valid_region_values": "REGION >= -9",
+    "valid_nummhs_normalized": "NUMMHS_normalized is not null",
+    "valid_nummhs_standardized": "NUMMHS_standardized is not null",
+    "valid_gender_mapped": "GENDER_mapped is not null",
+    "valid_race_mapped": "RACE_mapped is not null",
+    "valid_marstat_mapped": "MARSTAT_mapped is not null",
+    "valid_employ_mapped": "EMPLOY_mapped is not null",
+    "valid_ethnic_mapped": "ETHNIC_mapped is not null",
+    "valid_caseid_int": "cast(CASEID_int as int) == CASEID_int"
+})
+@dlt.table(name="gold_full", schema=gold_schema)
+def gold_layer() -> DataFrame:
+    df = spark.read.table("silver_3_full").na.drop()
     df = df.drop("demographic_strata").drop("strataIndex")
+    partition_columns = ["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
+    assert df.schema == gold_schema
+    df.write.format("delta").mode("overwrite").partitionBy(partition_columns).saveAsTable("gold_full")
+    return df
+
+
+@dlt.expect_all_or_drop({
+    "non_negative_age": "AGE >= 0 or AGE == -9",
+    "valid_age_type": "cast(AGE as int) == AGE",
+    "valid_year_type": "cast(YEAR as int) == YEAR",
+    "valid_caseid_type": "cast(CASEID as long) == CASEID",
+    "valid_educ_values": "EDUC >= -9",
+    "valid_ethnic_values": "ETHNIC >= -9",
+    "valid_race_values": "RACE >= -9",
+    "valid_gender_values": "GENDER >= -9",
+    "valid_sphservice_values": "SPHSERVICE >= -9",
+    "valid_cmpservice_values": "CMPSERVICE >= -9",
+    "valid_opiservice_values": "OPISERVICE >= -9",
+    "valid_rtcservice_values": "RTCSERVICE >= -9",
+    "valid_ijsservice_values": "IJSSERVICE >= -9",
+    "valid_mh1_values": "MH1 >= -9",
+    "valid_mh2_values": "MH2 >= -9",
+    "valid_mh3_values": "MH3 >= -9",
+    "valid_sub_values": "SUB >= -9",
+    "valid_marstat_values": "MARSTAT >= -9",
+    "valid_smised_values": "SMISED >= -9",
+    "valid_sap_values": "SAP >= -9",
+    "valid_employ_values": "EMPLOY >= -9",
+    "valid_detnlf_values": "DETNLF >= -9",
+    "valid_veteran_values": "VETERAN >= -9",
+    "valid_livarag_values": "LIVARAG >= -9",
+    "valid_nummhs_values": "NUMMHS >= -9",
+    "valid_traustref_values": "TRAUSTREFLG >= -9",
+    "valid_anxiety_values": "ANXIETYFLG >= -9",
+    "valid_adhd_values": "ADHDFLG >= -9",
+    "valid_conduct_values": "CONDUCTFLG >= -9",
+    "valid_delirdem_values": "DELIRDEMFLG >= -9",
+    "valid_bipolar_values": "BIPOLARFLG >= -9",
+    "valid_depress_values": "DEPRESSFLG >= -9",
+    "valid_odd_values": "ODDFLG >= -9",
+    "valid_pdd_values": "PDDFLG >= -9",
+    "valid_person_values": "PERSONFLG >= -9",
+    "valid_schizo_values": "SCHIZOFLG >= -9",
+    "valid_alcsub_values": "ALCSUBFLG >= -9",
+    "valid_otherdis_values": "OTHERDISFLG >= -9",
+    "valid_statefip_values": "STATEFIP >= -9",
+    "valid_division_values": "DIVISION >= -9",
+    "valid_region_values": "REGION >= -9",
+    "valid_nummhs_normalized": "NUMMHS_normalized is not null",
+    "valid_nummhs_standardized": "NUMMHS_standardized is not null",
+    "valid_gender_mapped": "GENDER_mapped is not null",
+    "valid_race_mapped": "RACE_mapped is not null",
+    "valid_marstat_mapped": "MARSTAT_mapped is not null",
+    "valid_employ_mapped": "EMPLOY_mapped is not null",
+    "valid_ethnic_mapped": "ETHNIC_mapped is not null",
+    "valid_caseid_int": "cast(CASEID_int as int) == CASEID_int"
+})
+@dlt.table(name="gold_train", schema=gold_schema)
+def gold_layer():
+    df = spark.read.table("silver_train").na.drop()
+    df = df.drop("demographic_strata").drop("strataIndex")
+    partition_columns = ["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
+    assert df.schema == gold_schema
+    df.write.format("delta").mode("overwrite").partitionBy(partition_columns).saveAsTable("gold_train")
+
+    return df
+
+@dlt.expect_all_or_drop({
+    "non_negative_age": "AGE >= 0 or AGE == -9",
+    "valid_age_type": "cast(AGE as int) == AGE",
+    "valid_year_type": "cast(YEAR as int) == YEAR",
+    "valid_caseid_type": "cast(CASEID as long) == CASEID",
+    "valid_educ_values": "EDUC >= -9",
+    "valid_ethnic_values": "ETHNIC >= -9",
+    "valid_race_values": "RACE >= -9",
+    "valid_gender_values": "GENDER >= -9",
+    "valid_sphservice_values": "SPHSERVICE >= -9",
+    "valid_cmpservice_values": "CMPSERVICE >= -9",
+    "valid_opiservice_values": "OPISERVICE >= -9",
+    "valid_rtcservice_values": "RTCSERVICE >= -9",
+    "valid_ijsservice_values": "IJSSERVICE >= -9",
+    "valid_mh1_values": "MH1 >= -9",
+    "valid_mh2_values": "MH2 >= -9",
+    "valid_mh3_values": "MH3 >= -9",
+    "valid_sub_values": "SUB >= -9",
+    "valid_marstat_values": "MARSTAT >= -9",
+    "valid_smised_values": "SMISED >= -9",
+    "valid_sap_values": "SAP >= -9",
+    "valid_employ_values": "EMPLOY >= -9",
+    "valid_detnlf_values": "DETNLF >= -9",
+    "valid_veteran_values": "VETERAN >= -9",
+    "valid_livarag_values": "LIVARAG >= -9",
+    "valid_nummhs_values": "NUMMHS >= -9",
+    "valid_traustref_values": "TRAUSTREFLG >= -9",
+    "valid_anxiety_values": "ANXIETYFLG >= -9",
+    "valid_adhd_values": "ADHDFLG >= -9",
+    "valid_conduct_values": "CONDUCTFLG >= -9",
+    "valid_delirdem_values": "DELIRDEMFLG >= -9",
+    "valid_bipolar_values": "BIPOLARFLG >= -9",
+    "valid_depress_values": "DEPRESSFLG >= -9",
+    "valid_odd_values": "ODDFLG >= -9",
+    "valid_pdd_values": "PDDFLG >= -9",
+    "valid_person_values": "PERSONFLG >= -9",
+    "valid_schizo_values": "SCHIZOFLG >= -9",
+    "valid_alcsub_values": "ALCSUBFLG >= -9",
+    "valid_otherdis_values": "OTHERDISFLG >= -9",
+    "valid_statefip_values": "STATEFIP >= -9",
+    "valid_division_values": "DIVISION >= -9",
+    "valid_region_values": "REGION >= -9",
+    "valid_nummhs_normalized": "NUMMHS_normalized is not null",
+    "valid_nummhs_standardized": "NUMMHS_standardized is not null",
+    "valid_gender_mapped": "GENDER_mapped is not null",
+    "valid_race_mapped": "RACE_mapped is not null",
+    "valid_marstat_mapped": "MARSTAT_mapped is not null",
+    "valid_employ_mapped": "EMPLOY_mapped is not null",
+    "valid_ethnic_mapped": "ETHNIC_mapped is not null",
+    "valid_caseid_int": "cast(CASEID_int as int) == CASEID_int"
+})
+@dlt.table(name="gold_validation", schema=gold_schema)
+def gold_layer() -> DataFrame:
+    df = spark.read.table("silver_validation").na.drop()
+    df = df.drop("demographic_strata").drop("strataIndex")
+    assert df.schema == gold_schema
+    partition_columns = ["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
+    df.write.format("delta").mode("overwrite").partitionBy(partition_columns).saveAsTable("gold_validation")
+
+
+@dlt.expect_all_or_drop({
+    "non_negative_age": "AGE >= 0 or AGE == -9",
+    "valid_age_type": "cast(AGE as int) == AGE",
+    "valid_year_type": "cast(YEAR as int) == YEAR",
+    "valid_caseid_type": "cast(CASEID as long) == CASEID",
+    "valid_educ_values": "EDUC >= -9",
+    "valid_ethnic_values": "ETHNIC >= -9",
+    "valid_race_values": "RACE >= -9",
+    "valid_gender_values": "GENDER >= -9",
+    "valid_sphservice_values": "SPHSERVICE >= -9",
+    "valid_cmpservice_values": "CMPSERVICE >= -9",
+    "valid_opiservice_values": "OPISERVICE >= -9",
+    "valid_rtcservice_values": "RTCSERVICE >= -9",
+    "valid_ijsservice_values": "IJSSERVICE >= -9",
+    "valid_mh1_values": "MH1 >= -9",
+    "valid_mh2_values": "MH2 >= -9",
+    "valid_mh3_values": "MH3 >= -9",
+    "valid_sub_values": "SUB >= -9",
+    "valid_marstat_values": "MARSTAT >= -9",
+    "valid_smised_values": "SMISED >= -9",
+    "valid_sap_values": "SAP >= -9",
+    "valid_employ_values": "EMPLOY >= -9",
+    "valid_detnlf_values": "DETNLF >= -9",
+    "valid_veteran_values": "VETERAN >= -9",
+    "valid_livarag_values": "LIVARAG >= -9",
+    "valid_nummhs_values": "NUMMHS >= -9",
+    "valid_traustref_values": "TRAUSTREFLG >= -9",
+    "valid_anxiety_values": "ANXIETYFLG >= -9",
+    "valid_adhd_values": "ADHDFLG >= -9",
+    "valid_conduct_values": "CONDUCTFLG >= -9",
+    "valid_delirdem_values": "DELIRDEMFLG >= -9",
+    "valid_bipolar_values": "BIPOLARFLG >= -9",
+    "valid_depress_values": "DEPRESSFLG >= -9",
+    "valid_odd_values": "ODDFLG >= -9",
+    "valid_pdd_values": "PDDFLG >= -9",
+    "valid_person_values": "PERSONFLG >= -9",
+    "valid_schizo_values": "SCHIZOFLG >= -9",
+    "valid_alcsub_values": "ALCSUBFLG >= -9",
+    "valid_otherdis_values": "OTHERDISFLG >= -9",
+    "valid_statefip_values": "STATEFIP >= -9",
+    "valid_division_values": "DIVISION >= -9",
+    "valid_region_values": "REGION >= -9",
+    "valid_nummhs_normalized": "NUMMHS_normalized is not null",
+    "valid_nummhs_standardized": "NUMMHS_standardized is not null",
+    "valid_gender_mapped": "GENDER_mapped is not null",
+    "valid_race_mapped": "RACE_mapped is not null",
+    "valid_marstat_mapped": "MARSTAT_mapped is not null",
+    "valid_employ_mapped": "EMPLOY_mapped is not null",
+    "valid_ethnic_mapped": "ETHNIC_mapped is not null",
+    "valid_caseid_int": "cast(CASEID_int as int) == CASEID_int"
+})
+@dlt.table(name="gold_test", schema=gold_schema)
+def gold_layer() -> DataFrame:
+    df = spark.read.table("silver_test").na.drop()
+    df = df.drop("demographic_strata").drop("strataIndex")
+    assert df.schema == gold_schema
+    partition_columns = ["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
+    df.write.format("delta").mode("overwrite").partitionBy(partition_columns).saveAsTable("gold_test")
+
     return df
