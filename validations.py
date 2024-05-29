@@ -39,7 +39,7 @@ bronze_validations = {
     "valid_otherdis_values": "OTHERDISFLG >= -9",
     "valid_statefip_values": "STATEFIP >= -9",
     "valid_division_values": "DIVISION >= -9",
-    "valid_region_values": "REGION >= -9"
+    "valid_region_values": "REGION >= -9",
 }
 
 silver_1_validation = {
@@ -83,7 +83,7 @@ silver_1_validation = {
     "valid_otherdis_values": "OTHERDISFLG >= -9",
     "valid_statefip_values": "STATEFIP >= -9",
     "valid_division_values": "DIVISION >= -9",
-    "valid_region_values": "REGION >= -9"
+    "valid_region_values": "REGION >= -9",
 }
 
 silver_2_validation = {
@@ -129,7 +129,7 @@ silver_2_validation = {
     "valid_division_values": "DIVISION >= -9",
     "valid_region_values": "REGION >= -9",
     "valid_nummhs_normalized": "NUMMHS_normalized is not null",
-    "valid_nummhs_standardized": "NUMMHS_standardized is not null"
+    "valid_nummhs_standardized": "NUMMHS_standardized is not null",
 }
 
 silver_3_validation = {
@@ -175,7 +175,7 @@ silver_3_validation = {
     "valid_division_values": "DIVISION >= -9",
     "valid_region_values": "REGION >= -9",
     "valid_demographic_strata": "demographic_strata IS NOT NULL AND demographic_strata != ''",
-    "valid_strataIndex": "strataIndex IS NOT NULL AND cast(strataIndex as double) == strataIndex"
+    "valid_strataIndex": "strataIndex IS NOT NULL AND cast(strataIndex as double) == strataIndex",
 }
 
 gold_validation = {
@@ -227,5 +227,5 @@ gold_validation = {
     "valid_marstat_mapped": "MARSTAT_mapped is not null",
     "valid_employ_mapped": "EMPLOY_mapped is not null",
     "valid_ethnic_mapped": "ETHNIC_mapped is not null",
-    "valid_caseid_int": "cast(CASEID_int as int) == CASEID_int"
+    "valid_caseid_int": "cast(CASEID_int as int) == CASEID_int",
 }

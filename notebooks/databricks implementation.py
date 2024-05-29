@@ -1,5 +1,5 @@
 # Databricks notebook source
-# MAGIC %sql 
+# MAGIC %sql
 # MAGIC DROP TABLE IF EXISTS bronze;
 # MAGIC DROP TABLE IF EXISTS silver_1;
 # MAGIC DROP TABLE IF EXISTS silver_2;
@@ -63,51 +63,53 @@ from pyspark.sql import types as T
 # ])
 
 
-@dlt.expect_all_or_drop({
-    "non_negative_age": "AGE >= 0 or AGE == -9",
-    "valid_age_type": "cast(AGE as int) == AGE",
-    "valid_year_type": "cast(YEAR as int) == YEAR",
-    "valid_caseid_type": "cast(CASEID as long) == CASEID",
-    "valid_educ_values": "EDUC >= -9",
-    "valid_ethnic_values": "ETHNIC >= -9",
-    "valid_race_values": "RACE >= -9",
-    "valid_gender_values": "GENDER >= -9",
-    "valid_sphservice_values": "SPHSERVICE >= -9",
-    "valid_cmpservice_values": "CMPSERVICE >= -9",
-    "valid_opiservice_values": "OPISERVICE >= -9",
-    "valid_rtcservice_values": "RTCSERVICE >= -9",
-    "valid_ijsservice_values": "IJSSERVICE >= -9",
-    "valid_mh1_values": "MH1 >= -9",
-    "valid_mh2_values": "MH2 >= -9",
-    "valid_mh3_values": "MH3 >= -9",
-    "valid_sub_values": "SUB >= -9",
-    "valid_marstat_values": "MARSTAT >= -9",
-    "valid_smised_values": "SMISED >= -9",
-    "valid_sap_values": "SAP >= -9",
-    "valid_employ_values": "EMPLOY >= -9",
-    "valid_detnlf_values": "DETNLF >= -9",
-    "valid_veteran_values": "VETERAN >= -9",
-    "valid_livarag_values": "LIVARAG >= -9",
-    "valid_nummhs_values": "NUMMHS >= -9",
-    "valid_traustref_values": "TRAUSTREFLG >= -9",
-    "valid_anxiety_values": "ANXIETYFLG >= -9",
-    "valid_adhd_values": "ADHDFLG >= -9",
-    "valid_conduct_values": "CONDUCTFLG >= -9",
-    "valid_delirdem_values": "DELIRDEMFLG >= -9",
-    "valid_bipolar_values": "BIPOLARFLG >= -9",
-    "valid_depress_values": "DEPRESSFLG >= -9",
-    "valid_odd_values": "ODDFLG >= -9",
-    "valid_pdd_values": "PDDFLG >= -9",
-    "valid_person_values": "PERSONFLG >= -9",
-    "valid_schizo_values": "SCHIZOFLG >= -9",
-    "valid_alcsub_values": "ALCSUBFLG >= -9",
-    "valid_otherdis_values": "OTHERDISFLG >= -9",
-    "valid_statefip_values": "STATEFIP >= -9",
-    "valid_division_values": "DIVISION >= -9",
-    "valid_region_values": "REGION >= -9"
-})
+@dlt.expect_all_or_drop(
+    {
+        "non_negative_age": "AGE >= 0 or AGE == -9",
+        "valid_age_type": "cast(AGE as int) == AGE",
+        "valid_year_type": "cast(YEAR as int) == YEAR",
+        "valid_caseid_type": "cast(CASEID as long) == CASEID",
+        "valid_educ_values": "EDUC >= -9",
+        "valid_ethnic_values": "ETHNIC >= -9",
+        "valid_race_values": "RACE >= -9",
+        "valid_gender_values": "GENDER >= -9",
+        "valid_sphservice_values": "SPHSERVICE >= -9",
+        "valid_cmpservice_values": "CMPSERVICE >= -9",
+        "valid_opiservice_values": "OPISERVICE >= -9",
+        "valid_rtcservice_values": "RTCSERVICE >= -9",
+        "valid_ijsservice_values": "IJSSERVICE >= -9",
+        "valid_mh1_values": "MH1 >= -9",
+        "valid_mh2_values": "MH2 >= -9",
+        "valid_mh3_values": "MH3 >= -9",
+        "valid_sub_values": "SUB >= -9",
+        "valid_marstat_values": "MARSTAT >= -9",
+        "valid_smised_values": "SMISED >= -9",
+        "valid_sap_values": "SAP >= -9",
+        "valid_employ_values": "EMPLOY >= -9",
+        "valid_detnlf_values": "DETNLF >= -9",
+        "valid_veteran_values": "VETERAN >= -9",
+        "valid_livarag_values": "LIVARAG >= -9",
+        "valid_nummhs_values": "NUMMHS >= -9",
+        "valid_traustref_values": "TRAUSTREFLG >= -9",
+        "valid_anxiety_values": "ANXIETYFLG >= -9",
+        "valid_adhd_values": "ADHDFLG >= -9",
+        "valid_conduct_values": "CONDUCTFLG >= -9",
+        "valid_delirdem_values": "DELIRDEMFLG >= -9",
+        "valid_bipolar_values": "BIPOLARFLG >= -9",
+        "valid_depress_values": "DEPRESSFLG >= -9",
+        "valid_odd_values": "ODDFLG >= -9",
+        "valid_pdd_values": "PDDFLG >= -9",
+        "valid_person_values": "PERSONFLG >= -9",
+        "valid_schizo_values": "SCHIZOFLG >= -9",
+        "valid_alcsub_values": "ALCSUBFLG >= -9",
+        "valid_otherdis_values": "OTHERDISFLG >= -9",
+        "valid_statefip_values": "STATEFIP >= -9",
+        "valid_division_values": "DIVISION >= -9",
+        "valid_region_values": "REGION >= -9",
+    }
+)
 @dlt.table(
-    name="bronze", 
+    name="bronze",
     partition_cols=["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"],
     # schema=bronze_schema
 )
@@ -122,9 +124,12 @@ def bronze_layer():
     )
     partition_columns = ["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
     assert df.schema == bronze_schema
-    df.write.format("delta").mode("overwrite").partitionBy(partition_columns).saveAsTable("bronze")
-    
+    df.write.format("delta").mode("overwrite").partitionBy(
+        partition_columns
+    ).saveAsTable("bronze")
+
     return df
+
 
 # COMMAND ----------
 
@@ -186,20 +191,21 @@ from pyspark.sql import types as T
 # ])
 
 
-@dlt.expect_all({
-    "valid_gender": "GENDER IS NOT NULL",
-    "valid_race": "RACE IS NOT NULL",
-    "valid_ethnic": "ETHNIC IS NOT NULL",
-    "valid_marstat": "MARSTAT IS NOT NULL",
-    "valid_employ": "EMPLOY IS NOT NULL"
-})
+@dlt.expect_all(
+    {
+        "valid_gender": "GENDER IS NOT NULL",
+        "valid_race": "RACE IS NOT NULL",
+        "valid_ethnic": "ETHNIC IS NOT NULL",
+        "valid_marstat": "MARSTAT IS NOT NULL",
+        "valid_employ": "EMPLOY IS NOT NULL",
+    }
+)
 @dlt.table(
-    name="silver_1",
-    partition_cols=["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
+    name="silver_1", partition_cols=["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
 )
 def silver_1():
     df = spark.read.table("bronze")
-    
+
     def create_map_udf(mapping_dict):
         return F.udf(lambda key: mapping_dict.get(key, "Unknown"), T.StringType())
 
@@ -257,7 +263,9 @@ def silver_1():
     # assert df.schema == silver_1_schema
     df.printSchema()
     partition_columns = ["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
-    df.write.format("delta").mode("overwrite").partitionBy(partition_columns).saveAsTable("silver_1")
+    df.write.format("delta").mode("overwrite").partitionBy(
+        partition_columns
+    ).saveAsTable("silver_1")
     return df
 
 
@@ -268,7 +276,12 @@ def silver_1():
 
 # COMMAND ----------
 
-from pyspark.ml.feature import VectorAssembler, MinMaxScaler, StandardScaler, StringIndexer
+from pyspark.ml.feature import (
+    VectorAssembler,
+    MinMaxScaler,
+    StandardScaler,
+    StringIndexer,
+)
 from pyspark.ml import Pipeline
 
 # silver_2_schema = T.StructType([
@@ -322,16 +335,18 @@ from pyspark.ml import Pipeline
 #     T.StructField("NUMMHS_standardized", T.FloatType(), True),
 # ])
 
-@dlt.expect_all({
-    "valid_gender": "GENDER IS NOT NULL",
-    "valid_race": "RACE IS NOT NULL",
-    "valid_ethnic": "ETHNIC IS NOT NULL",
-    "valid_marstat": "MARSTAT IS NOT NULL",
-    "valid_employ": "EMPLOY IS NOT NULL"
-})
+
+@dlt.expect_all(
+    {
+        "valid_gender": "GENDER IS NOT NULL",
+        "valid_race": "RACE IS NOT NULL",
+        "valid_ethnic": "ETHNIC IS NOT NULL",
+        "valid_marstat": "MARSTAT IS NOT NULL",
+        "valid_employ": "EMPLOY IS NOT NULL",
+    }
+)
 @dlt.table(
-    name="silver_2", 
-    partition_cols=["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
+    name="silver_2", partition_cols=["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
 )
 def silver_2():
     df = spark.read.table("silver_1")
@@ -341,27 +356,45 @@ def silver_2():
         # Assemble the column into a vector
         assembler = VectorAssembler(inputCols=[col], outputCol=f"{col}_vec")
         df = assembler.transform(df)
-        
+
         # Apply MinMaxScaler
-        min_max_scaler = MinMaxScaler(inputCol=f"{col}_vec", outputCol=f"{col}_normalized_vec")
+        min_max_scaler = MinMaxScaler(
+            inputCol=f"{col}_vec", outputCol=f"{col}_normalized_vec"
+        )
         df = min_max_scaler.fit(df).transform(df)
-        
+
         # Apply StandardScaler
-        standard_scaler = StandardScaler(inputCol=f"{col}_normalized_vec", outputCol=f"{col}_standardized_vec", withMean=True, withStd=True)
+        standard_scaler = StandardScaler(
+            inputCol=f"{col}_normalized_vec",
+            outputCol=f"{col}_standardized_vec",
+            withMean=True,
+            withStd=True,
+        )
         df = standard_scaler.fit(df).transform(df)
-        
+
         # Extract the first element from the vector columns
         extract_first_element = F.udf(lambda x: float(x[0]), T.FloatType())
-        df = df.withColumn(f"{col}_normalized", extract_first_element(F.col(f"{col}_normalized_vec")))
-        df = df.withColumn(f"{col}_standardized", extract_first_element(F.col(f"{col}_standardized_vec")))
-        
+        df = df.withColumn(
+            f"{col}_normalized", extract_first_element(F.col(f"{col}_normalized_vec"))
+        )
+        df = df.withColumn(
+            f"{col}_standardized",
+            extract_first_element(F.col(f"{col}_standardized_vec")),
+        )
+
         # Drop intermediate vector columns
-        df = df.drop(f"{col}_vec").drop(f"{col}_normalized_vec").drop(f"{col}_standardized_vec")
+        df = (
+            df.drop(f"{col}_vec")
+            .drop(f"{col}_normalized_vec")
+            .drop(f"{col}_standardized_vec")
+        )
 
     df = df.na.drop()
 
     partition_columns = ["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
-    df.write.format("delta").mode("overwrite").partitionBy(partition_columns).saveAsTable("silver_2")
+    df.write.format("delta").mode("overwrite").partitionBy(
+        partition_columns
+    ).saveAsTable("silver_2")
     return df
 
 
@@ -426,55 +459,55 @@ from pyspark.ml.feature import StringIndexer
 # ])
 
 
-
-@dlt.expect_all_or_drop({
-    "non_negative_age": "AGE >= 0 or AGE == -9",
-    "valid_age_type": "cast(AGE as int) == AGE",
-    "valid_year_type": "cast(YEAR as int) == YEAR",
-    "valid_caseid_type": "cast(CASEID as long) == CASEID",
-    "valid_educ_values": "EDUC >= -9",
-    "valid_ethnic_values": "ETHNIC >= -9",
-    "valid_race_values": "RACE >= -9",
-    "valid_gender_values": "GENDER >= -9",
-    "valid_sphservice_values": "SPHSERVICE >= -9",
-    "valid_cmpservice_values": "CMPSERVICE >= -9",
-    "valid_opiservice_values": "OPISERVICE >= -9",
-    "valid_rtcservice_values": "RTCSERVICE >= -9",
-    "valid_ijsservice_values": "IJSSERVICE >= -9",
-    "valid_mh1_values": "MH1 >= -9",
-    "valid_mh2_values": "MH2 >= -9",
-    "valid_mh3_values": "MH3 >= -9",
-    "valid_sub_values": "SUB >= -9",
-    "valid_marstat_values": "MARSTAT >= -9",
-    "valid_smised_values": "SMISED >= -9",
-    "valid_sap_values": "SAP >= -9",
-    "valid_employ_values": "EMPLOY >= -9",
-    "valid_detnlf_values": "DETNLF >= -9",
-    "valid_veteran_values": "VETERAN >= -9",
-    "valid_livarag_values": "LIVARAG >= -9",
-    "valid_nummhs_values": "NUMMHS >= -9",
-    "valid_traustref_values": "TRAUSTREFLG >= -9",
-    "valid_anxiety_values": "ANXIETYFLG >= -9",
-    "valid_adhd_values": "ADHDFLG >= -9",
-    "valid_conduct_values": "CONDUCTFLG >= -9",
-    "valid_delirdem_values": "DELIRDEMFLG >= -9",
-    "valid_bipolar_values": "BIPOLARFLG >= -9",
-    "valid_depress_values": "DEPRESSFLG >= -9",
-    "valid_odd_values": "ODDFLG >= -9",
-    "valid_pdd_values": "PDDFLG >= -9",
-    "valid_person_values": "PERSONFLG >= -9",
-    "valid_schizo_values": "SCHIZOFLG >= -9",
-    "valid_alcsub_values": "ALCSUBFLG >= -9",
-    "valid_otherdis_values": "OTHERDISFLG >= -9",
-    "valid_statefip_values": "STATEFIP >= -9",
-    "valid_division_values": "DIVISION >= -9",
-    "valid_region_values": "REGION >= -9",
-    "valid_demographic_strata": "demographic_strata IS NOT NULL AND demographic_strata != ''",
-    "valid_strataIndex": "strataIndex IS NOT NULL AND cast(strataIndex as double) == strataIndex"
-})
+@dlt.expect_all_or_drop(
+    {
+        "non_negative_age": "AGE >= 0 or AGE == -9",
+        "valid_age_type": "cast(AGE as int) == AGE",
+        "valid_year_type": "cast(YEAR as int) == YEAR",
+        "valid_caseid_type": "cast(CASEID as long) == CASEID",
+        "valid_educ_values": "EDUC >= -9",
+        "valid_ethnic_values": "ETHNIC >= -9",
+        "valid_race_values": "RACE >= -9",
+        "valid_gender_values": "GENDER >= -9",
+        "valid_sphservice_values": "SPHSERVICE >= -9",
+        "valid_cmpservice_values": "CMPSERVICE >= -9",
+        "valid_opiservice_values": "OPISERVICE >= -9",
+        "valid_rtcservice_values": "RTCSERVICE >= -9",
+        "valid_ijsservice_values": "IJSSERVICE >= -9",
+        "valid_mh1_values": "MH1 >= -9",
+        "valid_mh2_values": "MH2 >= -9",
+        "valid_mh3_values": "MH3 >= -9",
+        "valid_sub_values": "SUB >= -9",
+        "valid_marstat_values": "MARSTAT >= -9",
+        "valid_smised_values": "SMISED >= -9",
+        "valid_sap_values": "SAP >= -9",
+        "valid_employ_values": "EMPLOY >= -9",
+        "valid_detnlf_values": "DETNLF >= -9",
+        "valid_veteran_values": "VETERAN >= -9",
+        "valid_livarag_values": "LIVARAG >= -9",
+        "valid_nummhs_values": "NUMMHS >= -9",
+        "valid_traustref_values": "TRAUSTREFLG >= -9",
+        "valid_anxiety_values": "ANXIETYFLG >= -9",
+        "valid_adhd_values": "ADHDFLG >= -9",
+        "valid_conduct_values": "CONDUCTFLG >= -9",
+        "valid_delirdem_values": "DELIRDEMFLG >= -9",
+        "valid_bipolar_values": "BIPOLARFLG >= -9",
+        "valid_depress_values": "DEPRESSFLG >= -9",
+        "valid_odd_values": "ODDFLG >= -9",
+        "valid_pdd_values": "PDDFLG >= -9",
+        "valid_person_values": "PERSONFLG >= -9",
+        "valid_schizo_values": "SCHIZOFLG >= -9",
+        "valid_alcsub_values": "ALCSUBFLG >= -9",
+        "valid_otherdis_values": "OTHERDISFLG >= -9",
+        "valid_statefip_values": "STATEFIP >= -9",
+        "valid_division_values": "DIVISION >= -9",
+        "valid_region_values": "REGION >= -9",
+        "valid_demographic_strata": "demographic_strata IS NOT NULL AND demographic_strata != ''",
+        "valid_strataIndex": "strataIndex IS NOT NULL AND cast(strataIndex as double) == strataIndex",
+    }
+)
 @dlt.table(
-    name="silver_3", 
-    partition_cols=["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
+    name="silver_3", partition_cols=["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
 )
 def silver_3():
     df = spark.read.table("silver_2")
@@ -507,7 +540,9 @@ def silver_3():
     validation.write.format("delta").mode("overwrite").saveAsTable("silver_validation")
     partition_columns = ["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
 
-    df.write.format("delta").mode("overwrite").partitionBy(partition_columns).saveAsTable("silver_3")
+    df.write.format("delta").mode("overwrite").partitionBy(
+        partition_columns
+    ).saveAsTable("silver_3")
     return df
 
 
@@ -585,20 +620,26 @@ def silver_3():
 #     T.StructField("CASEID_int", T.IntegerType(), True),
 # ])
 
-@dlt.expect_all({
-    "valid_gender": "GENDER IS NOT NULL",
-    "valid_race": "RACE IS NOT NULL",
-    "valid_ethnic": "ETHNIC IS NOT NULL",
-    "valid_marstat": "MARSTAT IS NOT NULL",
-    "valid_employ": "EMPLOY IS NOT NULL"
-})
-@dlt.table(name="gold")#, schema=gold_schema)
+
+@dlt.expect_all(
+    {
+        "valid_gender": "GENDER IS NOT NULL",
+        "valid_race": "RACE IS NOT NULL",
+        "valid_ethnic": "ETHNIC IS NOT NULL",
+        "valid_marstat": "MARSTAT IS NOT NULL",
+        "valid_employ": "EMPLOY IS NOT NULL",
+    }
+)
+@dlt.table(name="gold")  # , schema=gold_schema)
 def gold_layer():
     df = spark.read.table("silver_3").na.drop()
     df = df.drop("demographic_strata").drop("strataIndex")
     partition_columns = ["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
-    df.write.format("delta").mode("overwrite").partitionBy(partition_columns).saveAsTable("gold_full")
+    df.write.format("delta").mode("overwrite").partitionBy(
+        partition_columns
+    ).saveAsTable("gold_full")
     return df
+
 
 # COMMAND ----------
 
@@ -606,207 +647,231 @@ def gold_layer():
 
 # COMMAND ----------
 
-gold_schema = T.StructType([
-    T.StructField("YEAR", T.IntegerType(), True),
-    T.StructField("AGE", T.IntegerType(), True),
-    T.StructField("EDUC", T.IntegerType(), True),
-    T.StructField("ETHNIC", T.IntegerType(), True),
-    T.StructField("RACE", T.IntegerType(), True),
-    T.StructField("GENDER", T.IntegerType(), True),
-    T.StructField("SPHSERVICE", T.IntegerType(), True),
-    T.StructField("CMPSERVICE", T.IntegerType(), True),
-    T.StructField("OPISERVICE", T.IntegerType(), True),
-    T.StructField("RTCSERVICE", T.IntegerType(), True),
-    T.StructField("IJSSERVICE", T.IntegerType(), True),
-    T.StructField("MH1", T.IntegerType(), True),
-    T.StructField("MH2", T.IntegerType(), True),
-    T.StructField("MH3", T.IntegerType(), True),
-    T.StructField("SUB", T.IntegerType(), True),
-    T.StructField("MARSTAT", T.IntegerType(), True),
-    T.StructField("SMISED", T.IntegerType(), True),
-    T.StructField("SAP", T.IntegerType(), True),
-    T.StructField("EMPLOY", T.IntegerType(), True),
-    T.StructField("DETNLF", T.IntegerType(), True),
-    T.StructField("VETERAN", T.IntegerType(), True),
-    T.StructField("LIVARAG", T.IntegerType(), True),
-    T.StructField("NUMMHS", T.IntegerType(), True),
-    T.StructField("TRAUSTREFLG", T.IntegerType(), True),
-    T.StructField("ANXIETYFLG", T.IntegerType(), True),
-    T.StructField("ADHDFLG", T.IntegerType(), True),
-    T.StructField("CONDUCTFLG", T.IntegerType(), True),
-    T.StructField("DELIRDEMFLG", T.IntegerType(), True),
-    T.StructField("BIPOLARFLG", T.IntegerType(), True),
-    T.StructField("DEPRESSFLG", T.IntegerType(), True),
-    T.StructField("ODDFLG", T.IntegerType(), True),
-    T.StructField("PDDFLG", T.IntegerType(), True),
-    T.StructField("PERSONFLG", T.IntegerType(), True),
-    T.StructField("SCHIZOFLG", T.IntegerType(), True),
-    T.StructField("ALCSUBFLG", T.IntegerType(), True),
-    T.StructField("OTHERDISFLG", T.IntegerType(), True),
-    T.StructField("STATEFIP", T.IntegerType(), True),
-    T.StructField("DIVISION", T.IntegerType(), True),
-    T.StructField("REGION", T.IntegerType(), True),
-    T.StructField("CASEID", T.LongType(), True),
-    T.StructField("GENDER_mapped", T.StringType(), True),
-    T.StructField("RACE_mapped", T.StringType(), True),
-    T.StructField("MARSTAT_mapped", T.StringType(), True),
-    T.StructField("EMPLOY_mapped", T.StringType(), True),
-    T.StructField("ETHNIC_mapped", T.StringType(), True),
-    T.StructField("CASEID_int", T.IntegerType(), True),
-])
+gold_schema = T.StructType(
+    [
+        T.StructField("YEAR", T.IntegerType(), True),
+        T.StructField("AGE", T.IntegerType(), True),
+        T.StructField("EDUC", T.IntegerType(), True),
+        T.StructField("ETHNIC", T.IntegerType(), True),
+        T.StructField("RACE", T.IntegerType(), True),
+        T.StructField("GENDER", T.IntegerType(), True),
+        T.StructField("SPHSERVICE", T.IntegerType(), True),
+        T.StructField("CMPSERVICE", T.IntegerType(), True),
+        T.StructField("OPISERVICE", T.IntegerType(), True),
+        T.StructField("RTCSERVICE", T.IntegerType(), True),
+        T.StructField("IJSSERVICE", T.IntegerType(), True),
+        T.StructField("MH1", T.IntegerType(), True),
+        T.StructField("MH2", T.IntegerType(), True),
+        T.StructField("MH3", T.IntegerType(), True),
+        T.StructField("SUB", T.IntegerType(), True),
+        T.StructField("MARSTAT", T.IntegerType(), True),
+        T.StructField("SMISED", T.IntegerType(), True),
+        T.StructField("SAP", T.IntegerType(), True),
+        T.StructField("EMPLOY", T.IntegerType(), True),
+        T.StructField("DETNLF", T.IntegerType(), True),
+        T.StructField("VETERAN", T.IntegerType(), True),
+        T.StructField("LIVARAG", T.IntegerType(), True),
+        T.StructField("NUMMHS", T.IntegerType(), True),
+        T.StructField("TRAUSTREFLG", T.IntegerType(), True),
+        T.StructField("ANXIETYFLG", T.IntegerType(), True),
+        T.StructField("ADHDFLG", T.IntegerType(), True),
+        T.StructField("CONDUCTFLG", T.IntegerType(), True),
+        T.StructField("DELIRDEMFLG", T.IntegerType(), True),
+        T.StructField("BIPOLARFLG", T.IntegerType(), True),
+        T.StructField("DEPRESSFLG", T.IntegerType(), True),
+        T.StructField("ODDFLG", T.IntegerType(), True),
+        T.StructField("PDDFLG", T.IntegerType(), True),
+        T.StructField("PERSONFLG", T.IntegerType(), True),
+        T.StructField("SCHIZOFLG", T.IntegerType(), True),
+        T.StructField("ALCSUBFLG", T.IntegerType(), True),
+        T.StructField("OTHERDISFLG", T.IntegerType(), True),
+        T.StructField("STATEFIP", T.IntegerType(), True),
+        T.StructField("DIVISION", T.IntegerType(), True),
+        T.StructField("REGION", T.IntegerType(), True),
+        T.StructField("CASEID", T.LongType(), True),
+        T.StructField("GENDER_mapped", T.StringType(), True),
+        T.StructField("RACE_mapped", T.StringType(), True),
+        T.StructField("MARSTAT_mapped", T.StringType(), True),
+        T.StructField("EMPLOY_mapped", T.StringType(), True),
+        T.StructField("ETHNIC_mapped", T.StringType(), True),
+        T.StructField("CASEID_int", T.IntegerType(), True),
+    ]
+)
 
-@dlt.expect_all({
-    "valid_gender": "GENDER IS NOT NULL",
-    "valid_race": "RACE IS NOT NULL",
-    "valid_ethnic": "ETHNIC IS NOT NULL",
-    "valid_marstat": "MARSTAT IS NOT NULL",
-    "valid_employ": "EMPLOY IS NOT NULL"
-})
+
+@dlt.expect_all(
+    {
+        "valid_gender": "GENDER IS NOT NULL",
+        "valid_race": "RACE IS NOT NULL",
+        "valid_ethnic": "ETHNIC IS NOT NULL",
+        "valid_marstat": "MARSTAT IS NOT NULL",
+        "valid_employ": "EMPLOY IS NOT NULL",
+    }
+)
 @dlt.table(name="gold")
 def gold_layer():
     df = spark.read.table("silver_train").na.drop()
     df = df.drop("demographic_strata").drop("strataIndex")
     df.printSchema
     partition_columns = ["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
-    df.write.format("delta").mode("overwrite").partitionBy(partition_columns).saveAsTable("gold_train")
+    df.write.format("delta").mode("overwrite").partitionBy(
+        partition_columns
+    ).saveAsTable("gold_train")
 
     return df
 
+
 # COMMAND ----------
 
-gold_schema = T.StructType([
-    T.StructField("YEAR", T.IntegerType(), True),
-    T.StructField("AGE", T.IntegerType(), True),
-    T.StructField("EDUC", T.IntegerType(), True),
-    T.StructField("ETHNIC", T.IntegerType(), True),
-    T.StructField("RACE", T.IntegerType(), True),
-    T.StructField("GENDER", T.IntegerType(), True),
-    T.StructField("SPHSERVICE", T.IntegerType(), True),
-    T.StructField("CMPSERVICE", T.IntegerType(), True),
-    T.StructField("OPISERVICE", T.IntegerType(), True),
-    T.StructField("RTCSERVICE", T.IntegerType(), True),
-    T.StructField("IJSSERVICE", T.IntegerType(), True),
-    T.StructField("MH1", T.IntegerType(), True),
-    T.StructField("MH2", T.IntegerType(), True),
-    T.StructField("MH3", T.IntegerType(), True),
-    T.StructField("SUB", T.IntegerType(), True),
-    T.StructField("MARSTAT", T.IntegerType(), True),
-    T.StructField("SMISED", T.IntegerType(), True),
-    T.StructField("SAP", T.IntegerType(), True),
-    T.StructField("EMPLOY", T.IntegerType(), True),
-    T.StructField("DETNLF", T.IntegerType(), True),
-    T.StructField("VETERAN", T.IntegerType(), True),
-    T.StructField("LIVARAG", T.IntegerType(), True),
-    T.StructField("NUMMHS", T.IntegerType(), True),
-    T.StructField("TRAUSTREFLG", T.IntegerType(), True),
-    T.StructField("ANXIETYFLG", T.IntegerType(), True),
-    T.StructField("ADHDFLG", T.IntegerType(), True),
-    T.StructField("CONDUCTFLG", T.IntegerType(), True),
-    T.StructField("DELIRDEMFLG", T.IntegerType(), True),
-    T.StructField("BIPOLARFLG", T.IntegerType(), True),
-    T.StructField("DEPRESSFLG", T.IntegerType(), True),
-    T.StructField("ODDFLG", T.IntegerType(), True),
-    T.StructField("PDDFLG", T.IntegerType(), True),
-    T.StructField("PERSONFLG", T.IntegerType(), True),
-    T.StructField("SCHIZOFLG", T.IntegerType(), True),
-    T.StructField("ALCSUBFLG", T.IntegerType(), True),
-    T.StructField("OTHERDISFLG", T.IntegerType(), True),
-    T.StructField("STATEFIP", T.IntegerType(), True),
-    T.StructField("DIVISION", T.IntegerType(), True),
-    T.StructField("REGION", T.IntegerType(), True),
-    T.StructField("CASEID", T.LongType(), True),
-    T.StructField("GENDER_mapped", T.StringType(), True),
-    T.StructField("RACE_mapped", T.StringType(), True),
-    T.StructField("MARSTAT_mapped", T.StringType(), True),
-    T.StructField("EMPLOY_mapped", T.StringType(), True),
-    T.StructField("ETHNIC_mapped", T.StringType(), True),
-    T.StructField("CASEID_int", T.IntegerType(), True),
-])
+gold_schema = T.StructType(
+    [
+        T.StructField("YEAR", T.IntegerType(), True),
+        T.StructField("AGE", T.IntegerType(), True),
+        T.StructField("EDUC", T.IntegerType(), True),
+        T.StructField("ETHNIC", T.IntegerType(), True),
+        T.StructField("RACE", T.IntegerType(), True),
+        T.StructField("GENDER", T.IntegerType(), True),
+        T.StructField("SPHSERVICE", T.IntegerType(), True),
+        T.StructField("CMPSERVICE", T.IntegerType(), True),
+        T.StructField("OPISERVICE", T.IntegerType(), True),
+        T.StructField("RTCSERVICE", T.IntegerType(), True),
+        T.StructField("IJSSERVICE", T.IntegerType(), True),
+        T.StructField("MH1", T.IntegerType(), True),
+        T.StructField("MH2", T.IntegerType(), True),
+        T.StructField("MH3", T.IntegerType(), True),
+        T.StructField("SUB", T.IntegerType(), True),
+        T.StructField("MARSTAT", T.IntegerType(), True),
+        T.StructField("SMISED", T.IntegerType(), True),
+        T.StructField("SAP", T.IntegerType(), True),
+        T.StructField("EMPLOY", T.IntegerType(), True),
+        T.StructField("DETNLF", T.IntegerType(), True),
+        T.StructField("VETERAN", T.IntegerType(), True),
+        T.StructField("LIVARAG", T.IntegerType(), True),
+        T.StructField("NUMMHS", T.IntegerType(), True),
+        T.StructField("TRAUSTREFLG", T.IntegerType(), True),
+        T.StructField("ANXIETYFLG", T.IntegerType(), True),
+        T.StructField("ADHDFLG", T.IntegerType(), True),
+        T.StructField("CONDUCTFLG", T.IntegerType(), True),
+        T.StructField("DELIRDEMFLG", T.IntegerType(), True),
+        T.StructField("BIPOLARFLG", T.IntegerType(), True),
+        T.StructField("DEPRESSFLG", T.IntegerType(), True),
+        T.StructField("ODDFLG", T.IntegerType(), True),
+        T.StructField("PDDFLG", T.IntegerType(), True),
+        T.StructField("PERSONFLG", T.IntegerType(), True),
+        T.StructField("SCHIZOFLG", T.IntegerType(), True),
+        T.StructField("ALCSUBFLG", T.IntegerType(), True),
+        T.StructField("OTHERDISFLG", T.IntegerType(), True),
+        T.StructField("STATEFIP", T.IntegerType(), True),
+        T.StructField("DIVISION", T.IntegerType(), True),
+        T.StructField("REGION", T.IntegerType(), True),
+        T.StructField("CASEID", T.LongType(), True),
+        T.StructField("GENDER_mapped", T.StringType(), True),
+        T.StructField("RACE_mapped", T.StringType(), True),
+        T.StructField("MARSTAT_mapped", T.StringType(), True),
+        T.StructField("EMPLOY_mapped", T.StringType(), True),
+        T.StructField("ETHNIC_mapped", T.StringType(), True),
+        T.StructField("CASEID_int", T.IntegerType(), True),
+    ]
+)
 
-@dlt.expect_all({
-    "valid_gender": "GENDER IS NOT NULL",
-    "valid_race": "RACE IS NOT NULL",
-    "valid_ethnic": "ETHNIC IS NOT NULL",
-    "valid_marstat": "MARSTAT IS NOT NULL",
-    "valid_employ": "EMPLOY IS NOT NULL"
-})
+
+@dlt.expect_all(
+    {
+        "valid_gender": "GENDER IS NOT NULL",
+        "valid_race": "RACE IS NOT NULL",
+        "valid_ethnic": "ETHNIC IS NOT NULL",
+        "valid_marstat": "MARSTAT IS NOT NULL",
+        "valid_employ": "EMPLOY IS NOT NULL",
+    }
+)
 @dlt.table(name="gold", schema=gold_schema)
 def gold_layer():
     df = spark.read.table("silver_validation").na.drop()
     df = df.drop("demographic_strata").drop("strataIndex")
     assert df.schema == gold_schema
     partition_columns = ["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
-    df.write.format("delta").mode("overwrite").partitionBy(partition_columns).saveAsTable("gold_validation")
+    df.write.format("delta").mode("overwrite").partitionBy(
+        partition_columns
+    ).saveAsTable("gold_validation")
 
     return df
 
+
 # COMMAND ----------
 
-gold_schema = T.StructType([
-    T.StructField("YEAR", T.IntegerType(), True),
-    T.StructField("AGE", T.IntegerType(), True),
-    T.StructField("EDUC", T.IntegerType(), True),
-    T.StructField("ETHNIC", T.IntegerType(), True),
-    T.StructField("RACE", T.IntegerType(), True),
-    T.StructField("GENDER", T.IntegerType(), True),
-    T.StructField("SPHSERVICE", T.IntegerType(), True),
-    T.StructField("CMPSERVICE", T.IntegerType(), True),
-    T.StructField("OPISERVICE", T.IntegerType(), True),
-    T.StructField("RTCSERVICE", T.IntegerType(), True),
-    T.StructField("IJSSERVICE", T.IntegerType(), True),
-    T.StructField("MH1", T.IntegerType(), True),
-    T.StructField("MH2", T.IntegerType(), True),
-    T.StructField("MH3", T.IntegerType(), True),
-    T.StructField("SUB", T.IntegerType(), True),
-    T.StructField("MARSTAT", T.IntegerType(), True),
-    T.StructField("SMISED", T.IntegerType(), True),
-    T.StructField("SAP", T.IntegerType(), True),
-    T.StructField("EMPLOY", T.IntegerType(), True),
-    T.StructField("DETNLF", T.IntegerType(), True),
-    T.StructField("VETERAN", T.IntegerType(), True),
-    T.StructField("LIVARAG", T.IntegerType(), True),
-    T.StructField("NUMMHS", T.IntegerType(), True),
-    T.StructField("TRAUSTREFLG", T.IntegerType(), True),
-    T.StructField("ANXIETYFLG", T.IntegerType(), True),
-    T.StructField("ADHDFLG", T.IntegerType(), True),
-    T.StructField("CONDUCTFLG", T.IntegerType(), True),
-    T.StructField("DELIRDEMFLG", T.IntegerType(), True),
-    T.StructField("BIPOLARFLG", T.IntegerType(), True),
-    T.StructField("DEPRESSFLG", T.IntegerType(), True),
-    T.StructField("ODDFLG", T.IntegerType(), True),
-    T.StructField("PDDFLG", T.IntegerType(), True),
-    T.StructField("PERSONFLG", T.IntegerType(), True),
-    T.StructField("SCHIZOFLG", T.IntegerType(), True),
-    T.StructField("ALCSUBFLG", T.IntegerType(), True),
-    T.StructField("OTHERDISFLG", T.IntegerType(), True),
-    T.StructField("STATEFIP", T.IntegerType(), True),
-    T.StructField("DIVISION", T.IntegerType(), True),
-    T.StructField("REGION", T.IntegerType(), True),
-    T.StructField("CASEID", T.LongType(), True),
-    T.StructField("GENDER_mapped", T.StringType(), True),
-    T.StructField("RACE_mapped", T.StringType(), True),
-    T.StructField("MARSTAT_mapped", T.StringType(), True),
-    T.StructField("EMPLOY_mapped", T.StringType(), True),
-    T.StructField("ETHNIC_mapped", T.StringType(), True),
-    T.StructField("CASEID_int", T.IntegerType(), True),
-])
+gold_schema = T.StructType(
+    [
+        T.StructField("YEAR", T.IntegerType(), True),
+        T.StructField("AGE", T.IntegerType(), True),
+        T.StructField("EDUC", T.IntegerType(), True),
+        T.StructField("ETHNIC", T.IntegerType(), True),
+        T.StructField("RACE", T.IntegerType(), True),
+        T.StructField("GENDER", T.IntegerType(), True),
+        T.StructField("SPHSERVICE", T.IntegerType(), True),
+        T.StructField("CMPSERVICE", T.IntegerType(), True),
+        T.StructField("OPISERVICE", T.IntegerType(), True),
+        T.StructField("RTCSERVICE", T.IntegerType(), True),
+        T.StructField("IJSSERVICE", T.IntegerType(), True),
+        T.StructField("MH1", T.IntegerType(), True),
+        T.StructField("MH2", T.IntegerType(), True),
+        T.StructField("MH3", T.IntegerType(), True),
+        T.StructField("SUB", T.IntegerType(), True),
+        T.StructField("MARSTAT", T.IntegerType(), True),
+        T.StructField("SMISED", T.IntegerType(), True),
+        T.StructField("SAP", T.IntegerType(), True),
+        T.StructField("EMPLOY", T.IntegerType(), True),
+        T.StructField("DETNLF", T.IntegerType(), True),
+        T.StructField("VETERAN", T.IntegerType(), True),
+        T.StructField("LIVARAG", T.IntegerType(), True),
+        T.StructField("NUMMHS", T.IntegerType(), True),
+        T.StructField("TRAUSTREFLG", T.IntegerType(), True),
+        T.StructField("ANXIETYFLG", T.IntegerType(), True),
+        T.StructField("ADHDFLG", T.IntegerType(), True),
+        T.StructField("CONDUCTFLG", T.IntegerType(), True),
+        T.StructField("DELIRDEMFLG", T.IntegerType(), True),
+        T.StructField("BIPOLARFLG", T.IntegerType(), True),
+        T.StructField("DEPRESSFLG", T.IntegerType(), True),
+        T.StructField("ODDFLG", T.IntegerType(), True),
+        T.StructField("PDDFLG", T.IntegerType(), True),
+        T.StructField("PERSONFLG", T.IntegerType(), True),
+        T.StructField("SCHIZOFLG", T.IntegerType(), True),
+        T.StructField("ALCSUBFLG", T.IntegerType(), True),
+        T.StructField("OTHERDISFLG", T.IntegerType(), True),
+        T.StructField("STATEFIP", T.IntegerType(), True),
+        T.StructField("DIVISION", T.IntegerType(), True),
+        T.StructField("REGION", T.IntegerType(), True),
+        T.StructField("CASEID", T.LongType(), True),
+        T.StructField("GENDER_mapped", T.StringType(), True),
+        T.StructField("RACE_mapped", T.StringType(), True),
+        T.StructField("MARSTAT_mapped", T.StringType(), True),
+        T.StructField("EMPLOY_mapped", T.StringType(), True),
+        T.StructField("ETHNIC_mapped", T.StringType(), True),
+        T.StructField("CASEID_int", T.IntegerType(), True),
+    ]
+)
 
-@dlt.expect_all({
-    "valid_gender": "GENDER IS NOT NULL",
-    "valid_race": "RACE IS NOT NULL",
-    "valid_ethnic": "ETHNIC IS NOT NULL",
-    "valid_marstat": "MARSTAT IS NOT NULL",
-    "valid_employ": "EMPLOY IS NOT NULL"
-})
+
+@dlt.expect_all(
+    {
+        "valid_gender": "GENDER IS NOT NULL",
+        "valid_race": "RACE IS NOT NULL",
+        "valid_ethnic": "ETHNIC IS NOT NULL",
+        "valid_marstat": "MARSTAT IS NOT NULL",
+        "valid_employ": "EMPLOY IS NOT NULL",
+    }
+)
 @dlt.table(name="gold", schema=gold_schema)
 def gold_layer():
     df = spark.read.table("silver_test").na.drop()
     df = df.drop("demographic_strata").drop("strataIndex")
     assert df.schema == gold_schema
     partition_columns = ["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
-    df.write.format("delta").mode("overwrite").partitionBy(partition_columns).saveAsTable("gold_test")
+    df.write.format("delta").mode("overwrite").partitionBy(
+        partition_columns
+    ).saveAsTable("gold_test")
 
     return df
+
 
 # COMMAND ----------
 
@@ -829,5 +894,3 @@ def gold_layer():
 # MAGIC SELECT * FROM gold_validation LIMIT 10;
 
 # COMMAND ----------
-
-
