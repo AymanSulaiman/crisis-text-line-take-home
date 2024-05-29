@@ -32,6 +32,11 @@ from validations import (
     schema=bronze_schema,
 )
 def bronze_layer() -> DataFrame:
+    """Load and process raw data into the bronze layer.
+
+    Returns:
+        DataFrame: Processed bronze layer DataFrame.
+    """
     raw_path = "dbfs:/FileStore/tables/mhcld_puf_2021.csv"
     df = (
         spark.read.format("csv")
@@ -55,10 +60,23 @@ def bronze_layer() -> DataFrame:
     partition_cols=["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"],
     schema=silver_1_schema,
 )
-def silver_1():
+def silver_1() -> DataFrame:
+    """Process bronze data to create the first silver layer.
+
+    Returns:
+        DataFrame: Processed silver layer DataFrame.
+    """
     df = spark.read.table("bronze")
 
     def create_map_udf(mapping_dict):
+        """Create a UDF for mapping dictionary values.
+
+        Args:
+            mapping_dict (dict): Mapping dictionary.
+
+        Returns:
+            function: UDF for mapping dictionary values.
+        """
         return F.udf(lambda key: mapping_dict.get(key, "Unknown"), T.StringType())
 
     # Mappings
@@ -127,6 +145,11 @@ def silver_1():
     schema=silver_2_schema,
 )
 def silver_2() -> DataFrame:
+    """Process silver_1 data to create the second silver layer.
+
+    Returns:
+        DataFrame: Processed silver layer DataFrame with normalized and standardized columns.
+    """
     df = spark.read.table("silver_1")
     numeric_columns = ["NUMMHS"]
 
@@ -183,6 +206,11 @@ def silver_2() -> DataFrame:
     schema=silver_3_schema,
 )
 def silver_3() -> DataFrame:
+    """Process silver_2 data to create the third silver layer.
+
+    Returns:
+        DataFrame: Processed silver layer DataFrame with demographic strata and splits for training, testing, and validation.
+    """
     df = spark.read.table("silver_2")
 
     # Create demographic_strata column
@@ -221,7 +249,12 @@ def silver_3() -> DataFrame:
 
 @dlt.expect_all_or_drop(gold_validation)
 @dlt.table(name="gold_full", schema=gold_schema)
-def gold_layer() -> DataFrame:
+def gold_full_layer() -> DataFrame:
+    """Process silver_3_full data to create the full gold layer.
+
+    Returns:
+        DataFrame: Processed gold layer DataFrame.
+    """
     df = spark.read.table("silver_3_full").na.drop()
     df = df.drop("demographic_strata").drop("strataIndex")
     partition_columns = ["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
@@ -234,7 +267,12 @@ def gold_layer() -> DataFrame:
 
 @dlt.expect_all_or_drop(gold_validation)
 @dlt.table(name="gold_train", schema=gold_schema)
-def gold_layer():
+def gold_train_layer() -> DataFrame:
+    """Process silver_train data to create the training gold layer.
+
+    Returns:
+        DataFrame: Processed gold layer DataFrame for training.
+    """
     df = spark.read.table("silver_train").na.drop()
     df = df.drop("demographic_strata").drop("strataIndex")
     partition_columns = ["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"]
@@ -248,7 +286,12 @@ def gold_layer():
 
 @dlt.expect_all_or_drop(gold_validation)
 @dlt.table(name="gold_validation", schema=gold_schema)
-def gold_layer() -> DataFrame:
+def gold_validation_layer() -> DataFrame:
+    """Process silver_validation data to create the validation gold layer.
+
+    Returns:
+        DataFrame: Processed gold layer DataFrame for validation.
+    """
     df = spark.read.table("silver_validation").na.drop()
     df = df.drop("demographic_strata").drop("strataIndex")
     assert df.schema == gold_schema
@@ -257,10 +300,17 @@ def gold_layer() -> DataFrame:
         partition_columns
     ).saveAsTable("gold_validation")
 
+    return df
+
 
 @dlt.expect_all_or_drop(gold_validation)
 @dlt.table(name="gold_test", schema=gold_schema)
-def gold_layer() -> DataFrame:
+def gold_test_layer() -> DataFrame:
+    """Process silver_test data to create the testing gold layer.
+
+    Returns:
+        DataFrame: Processed gold layer DataFrame for testing.
+    """
     df = spark.read.table("silver_test").na.drop()
     df = df.drop("demographic_strata").drop("strataIndex")
     assert df.schema == gold_schema
