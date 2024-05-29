@@ -29,9 +29,11 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 # Function to create a UDF for mapping dictionary values
 def create_map_udf(mapping_dict):
     return F.udf(lambda key: mapping_dict.get(key, "Unknown"), T.StringType())
+
 
 # Decorator for error handling
 def handle_error(func):
@@ -41,7 +43,9 @@ def handle_error(func):
         except Exception as e:
             logger.error(f"Error in function {func.__name__}: {e}")
             raise
+
     return wrapper
+
 
 # Function to summarize data type conversions
 def summarize_data_type_conversions(df: DataFrame):
@@ -49,6 +53,7 @@ def summarize_data_type_conversions(df: DataFrame):
     for field in df.schema.fields:
         summary[field.name] = str(field.dataType)
     return summary
+
 
 # Function to summarize normalization and standardization
 def summarize_normalization(df: DataFrame, columns: list):
@@ -58,9 +63,10 @@ def summarize_normalization(df: DataFrame, columns: list):
             "min": df.select(F.min(col)).collect()[0][0],
             "max": df.select(F.max(col)).collect()[0][0],
             "mean": df.select(F.mean(col)).collect()[0][0],
-            "stddev": df.select(F.stddev(col)).collect()[0][0]
+            "stddev": df.select(F.stddev(col)).collect()[0][0],
         }
     return summary
+
 
 # Bronze Layer
 @dlt.expect_all_or_drop(bronze_validations)
@@ -87,6 +93,7 @@ def bronze_layer() -> DataFrame:
     logger.info("Bronze layer processing complete.")
     logger.info(f"Schema: {summarize_data_type_conversions(df)}")
     return df
+
 
 # Silver 1 Layer
 @dlt.expect_all_or_drop(silver_1_validation)
@@ -159,6 +166,7 @@ def silver_1() -> DataFrame:
     logger.info(f"Schema: {summarize_data_type_conversions(df)}")
     return df
 
+
 # Silver 2 Layer
 @dlt.expect_all_or_drop(silver_2_validation)
 @dlt.table(
@@ -176,7 +184,8 @@ def silver_2() -> DataFrame:
         df = assembler.transform(df)
 
         min_max_scaler = MinMaxScaler(
-            inputCol=f"{col}_vec", outputCol=f"{col}_normalized_vec")
+            inputCol=f"{col}_vec", outputCol=f"{col}_normalized_vec"
+        )
         df = min_max_scaler.fit(df).transform(df)
 
         standard_scaler = StandardScaler(
@@ -189,7 +198,8 @@ def silver_2() -> DataFrame:
 
         extract_first_element = F.udf(lambda x: float(x[0]), T.FloatType())
         df = df.withColumn(
-            f"{col}_normalized", extract_first_element(F.col(f"{col}_normalized_vec")))
+            f"{col}_normalized", extract_first_element(F.col(f"{col}_normalized_vec"))
+        )
         df = df.withColumn(
             f"{col}_standardized",
             extract_first_element(F.col(f"{col}_standardized_vec")),
@@ -208,8 +218,11 @@ def silver_2() -> DataFrame:
         partition_columns
     ).saveAsTable("silver_2")
     logger.info("Silver_2 layer processing complete.")
-    logger.info(f"Normalization Summary: {summarize_normalization(df, numeric_columns)}")
+    logger.info(
+        f"Normalization Summary: {summarize_normalization(df, numeric_columns)}"
+    )
     return df
+
 
 # Silver 3 Layer
 @dlt.expect_all_or_drop(silver_3_validation)
@@ -253,10 +266,11 @@ def silver_3() -> DataFrame:
     logger.info("Data partitioning and sampling complete.")
     return df
 
+
 # Gold Full Layer
 @dlt.expect_all_or_drop(gold_validation)
 @dlt.table(
-    name="gold_full", 
+    name="gold_full",
     # schema=gold_schema
 )
 @handle_error
@@ -271,12 +285,10 @@ def gold_full_layer() -> DataFrame:
     logger.info("Gold_full layer processing complete.")
     return df
 
+
 # Gold Train Layer
 @dlt.expect_all_or_drop(gold_validation)
-@dlt.table(
-    name="gold_train", 
-    schema=gold_schema
-    )
+@dlt.table(name="gold_train", schema=gold_schema)
 @handle_error
 def gold_train_layer() -> DataFrame:
     df = spark.read.table("silver_train").na.drop()
@@ -289,12 +301,10 @@ def gold_train_layer() -> DataFrame:
     logger.info("Gold_train layer processing complete.")
     return df
 
+
 # Gold Validation Layer
 @dlt.expect_all_or_drop(gold_validation)
-@dlt.table(
-    name="gold_validation",
-    schema=gold_schema
-    )
+@dlt.table(name="gold_validation", schema=gold_schema)
 @handle_error
 def gold_validation_layer() -> DataFrame:
     df = spark.read.table("silver_validation").na.drop()
@@ -307,11 +317,10 @@ def gold_validation_layer() -> DataFrame:
     logger.info("Gold_validation layer processing complete.")
     return df
 
+
 # Gold Test Layer
 @dlt.expect_all_or_drop(gold_validation)
-@dlt.table(
-    name="gold_test", 
-    schema=gold_schema)
+@dlt.table(name="gold_test", schema=gold_schema)
 @handle_error
 def gold_test_layer() -> DataFrame:
     df = spark.read.table("silver_test").na.drop()
@@ -324,11 +333,14 @@ def gold_test_layer() -> DataFrame:
     logger.info("Gold_test layer processing complete.")
     return df
 
+
 # Summary Reporting Functions
 def generate_summary_report():
     bronze_summary = summarize_data_type_conversions(spark.read.table("bronze"))
     silver_1_summary = summarize_data_type_conversions(spark.read.table("silver_1"))
-    silver_2_normalization_summary = summarize_normalization(spark.read.table("silver_2"), ["NUMMHS_normalized", "NUMMHS_standardized"])
+    silver_2_normalization_summary = summarize_normalization(
+        spark.read.table("silver_2"), ["NUMMHS_normalized", "NUMMHS_standardized"]
+    )
     silver_3_summary = "Data partitioning and sampling complete."
 
     logger.info(f"Bronze Layer Summary: {bronze_summary}")
@@ -336,5 +348,5 @@ def generate_summary_report():
     logger.info(f"Silver_2 Normalization Summary: {silver_2_normalization_summary}")
     logger.info(f"Silver_3 Summary: {silver_3_summary}")
 
-generate_summary_report()
 
+generate_summary_report()
