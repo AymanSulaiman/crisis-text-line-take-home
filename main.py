@@ -8,7 +8,6 @@ from pyspark.ml.feature import (
     StandardScaler,
     StringIndexer,
 )
-
 from schemas import (
     bronze_schema,
     gold_schema,
@@ -23,7 +22,38 @@ from validations import (
     silver_3_validation,
     gold_validation,
 )
+import logging
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def create_map_udf(mapping_dict):
+    """Create a UDF for mapping dictionary values.
+
+    Args:
+        mapping_dict (dict): Mapping dictionary.
+
+    Returns:
+        function: UDF for mapping dictionary values.
+    """
+    return F.udf(lambda key: mapping_dict.get(key, "Unknown"), T.StringType())
+
+def handle_error(func):
+    """Decorator to handle errors and exceptions in data processing functions.
+
+    Args:
+        func (function): Function to wrap with error handling.
+
+    Returns:
+        function: Wrapped function with error handling.
+    """
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            logger.error(f"Error in function {func.__name__}: {e}")
+            raise
+    return wrapper
 
 @dlt.expect_all_or_drop(bronze_validations)
 @dlt.table(
@@ -31,6 +61,7 @@ from validations import (
     partition_cols=["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"],
     schema=bronze_schema,
 )
+@handle_error
 def bronze_layer() -> DataFrame:
     """Load and process raw data into the bronze layer.
 
@@ -50,9 +81,8 @@ def bronze_layer() -> DataFrame:
     df.write.format("delta").mode("overwrite").partitionBy(
         partition_columns
     ).saveAsTable("bronze")
-
+    logger.info("Bronze layer processing complete.")
     return df
-
 
 @dlt.expect_all_or_drop(silver_1_validation)
 @dlt.table(
@@ -60,6 +90,7 @@ def bronze_layer() -> DataFrame:
     partition_cols=["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"],
     schema=silver_1_schema,
 )
+@handle_error
 def silver_1() -> DataFrame:
     """Process bronze data to create the first silver layer.
 
@@ -67,17 +98,6 @@ def silver_1() -> DataFrame:
         DataFrame: Processed silver layer DataFrame.
     """
     df = spark.read.table("bronze")
-
-    def create_map_udf(mapping_dict):
-        """Create a UDF for mapping dictionary values.
-
-        Args:
-            mapping_dict (dict): Mapping dictionary.
-
-        Returns:
-            function: UDF for mapping dictionary values.
-        """
-        return F.udf(lambda key: mapping_dict.get(key, "Unknown"), T.StringType())
 
     # Mappings
     gender = {1: "Male", 2: "Female", -9: "Missing/unknown/not collected/invalid"}
@@ -135,8 +155,8 @@ def silver_1() -> DataFrame:
     df.write.format("delta").mode("overwrite").partitionBy(
         partition_columns
     ).saveAsTable("silver_1")
+    logger.info("Silver_1 layer processing complete.")
     return df
-
 
 @dlt.expect_all_or_drop(silver_2_validation)
 @dlt.table(
@@ -144,6 +164,7 @@ def silver_1() -> DataFrame:
     partition_cols=["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"],
     schema=silver_2_schema,
 )
+@handle_error
 def silver_2() -> DataFrame:
     """Process silver_1 data to create the second silver layer.
 
@@ -196,8 +217,8 @@ def silver_2() -> DataFrame:
     df.write.format("delta").mode("overwrite").partitionBy(
         partition_columns
     ).saveAsTable("silver_2")
+    logger.info("Silver_2 layer processing complete.")
     return df
-
 
 @dlt.expect_all_or_drop(silver_3_validation)
 @dlt.table(
@@ -205,6 +226,7 @@ def silver_2() -> DataFrame:
     partition_cols=["GENDER", "RACE", "ETHNIC", "MARSTAT", "EMPLOY"],
     schema=silver_3_schema,
 )
+@handle_error
 def silver_3() -> DataFrame:
     """Process silver_2 data to create the third silver layer.
 
@@ -244,11 +266,12 @@ def silver_3() -> DataFrame:
     df.write.format("delta").mode("overwrite").partitionBy(
         partition_columns
     ).saveAsTable("silver_3_full")
+    logger.info("Silver_3 layer processing complete.")
     return df
-
 
 @dlt.expect_all_or_drop(gold_validation)
 @dlt.table(name="gold_full", schema=gold_schema)
+@handle_error
 def gold_full_layer() -> DataFrame:
     """Process silver_3_full data to create the full gold layer.
 
@@ -262,11 +285,12 @@ def gold_full_layer() -> DataFrame:
     df.write.format("delta").mode("overwrite").partitionBy(
         partition_columns
     ).saveAsTable("gold_full")
+    logger.info("Gold_full layer processing complete.")
     return df
-
 
 @dlt.expect_all_or_drop(gold_validation)
 @dlt.table(name="gold_train", schema=gold_schema)
+@handle_error
 def gold_train_layer() -> DataFrame:
     """Process silver_train data to create the training gold layer.
 
@@ -280,12 +304,12 @@ def gold_train_layer() -> DataFrame:
     df.write.format("delta").mode("overwrite").partitionBy(
         partition_columns
     ).saveAsTable("gold_train")
-
+    logger.info("Gold_train layer processing complete.")
     return df
-
 
 @dlt.expect_all_or_drop(gold_validation)
 @dlt.table(name="gold_validation", schema=gold_schema)
+@handle_error
 def gold_validation_layer() -> DataFrame:
     """Process silver_validation data to create the validation gold layer.
 
@@ -299,12 +323,12 @@ def gold_validation_layer() -> DataFrame:
     df.write.format("delta").mode("overwrite").partitionBy(
         partition_columns
     ).saveAsTable("gold_validation")
-
+    logger.info("Gold_validation layer processing complete.")
     return df
-
 
 @dlt.expect_all_or_drop(gold_validation)
 @dlt.table(name="gold_test", schema=gold_schema)
+@handle_error
 def gold_test_layer() -> DataFrame:
     """Process silver_test data to create the testing gold layer.
 
@@ -318,5 +342,5 @@ def gold_test_layer() -> DataFrame:
     df.write.format("delta").mode("overwrite").partitionBy(
         partition_columns
     ).saveAsTable("gold_test")
-
+    logger.info("Gold_test layer processing complete.")
     return df

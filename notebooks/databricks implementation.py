@@ -3,7 +3,7 @@
 # MAGIC DROP TABLE IF EXISTS bronze;
 # MAGIC DROP TABLE IF EXISTS silver_1;
 # MAGIC DROP TABLE IF EXISTS silver_2;
-# MAGIC DROP TABLE IF EXISTS silver_3;
+# MAGIC DROP TABLE IF EXISTS silver_3_full;
 # MAGIC DROP TABLE IF EXISTS silver_test;
 # MAGIC DROP TABLE IF EXISTS silver_train;
 # MAGIC DROP TABLE IF EXISTS silver_validation;
@@ -892,5 +892,3 @@ def gold_layer():
 
 # MAGIC %sql
 # MAGIC SELECT * FROM gold_validation LIMIT 10;
-
-# COMMAND ----------
